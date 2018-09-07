@@ -11,11 +11,11 @@ $ git clone https://chromium.googlesource.com/chromium/tools/depot_tools.git
 After running the command above you need to add depot_tools to your path (**Note: the path to depot_tools should always be included in you $PATH when you try to build chromium so if you want to build it from time to time it is better to add it permanently**):
 * **Adding depot_tools temporarily**: Run the following command:
 ```
-$ export PATH="$PATH:/path/to/depot_tools"
+$ export PATH=$PATH:/path/to/depot_tools
 ```
 * **Adding depot_tools permanently**: Add the following line to the ~/.bashrc file:
 ```
-export PATH="$PATH:/path/to/depot_tools
+export PATH=$PATH:/path/to/depot_tools
 ```
   and run the following command:
 ```
