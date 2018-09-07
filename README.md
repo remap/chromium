@@ -50,10 +50,13 @@ gn gen out/Default
 ### Build Chromium
 Run the following command:
 ```
-
+$ autoninja -C out/Default chrome
 ```
 ### Run Chromium
-
+Run the following command:
+```
+$ out/Default/chrome
+```
 ## List of functionalities added in this fork
   * Hello class and say hello functionality
 ##
