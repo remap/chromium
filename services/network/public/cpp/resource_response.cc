@@ -38,14 +38,14 @@ scoped_refptr<ResourceResponse> ResourceResponse::DeepCopy() const {
   new_response->head.connection_info = head.connection_info;
   new_response->head.alpn_negotiated_protocol = head.alpn_negotiated_protocol;
   new_response->head.socket_address = head.socket_address;
+  new_response->head.was_fetched_via_cache = head.was_fetched_via_cache;
   new_response->head.was_fetched_via_service_worker =
       head.was_fetched_via_service_worker;
   new_response->head.was_fallback_required_by_service_worker =
       head.was_fallback_required_by_service_worker;
   new_response->head.url_list_via_service_worker =
       head.url_list_via_service_worker;
-  new_response->head.response_type_via_service_worker =
-      head.response_type_via_service_worker;
+  new_response->head.response_type = head.response_type;
   new_response->head.service_worker_start_time = head.service_worker_start_time;
   new_response->head.service_worker_ready_time = head.service_worker_ready_time;
   new_response->head.is_in_cache_storage = head.is_in_cache_storage;

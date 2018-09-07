@@ -8,7 +8,8 @@ namespace blink {
 
 namespace {
 
-WTF::String ToString(OverscrollBehavior::OverscrollBehaviorType value) {
+WTF::String OverscrollBehaviorTypeToString(
+    OverscrollBehavior::OverscrollBehaviorType value) {
   switch (value) {
     case OverscrollBehavior::kOverscrollBehaviorTypeNone:
       return "none";
@@ -63,13 +64,26 @@ std::unique_ptr<JSONObject> ScrollPaintPropertyNode::ToJSON() const {
   }
   if (state_.overscroll_behavior.x !=
       OverscrollBehavior::kOverscrollBehaviorTypeAuto) {
-    json->SetString("overscroll-behavior-x",
-                    blink::ToString(state_.overscroll_behavior.x));
+    json->SetString("overscroll-behavior-x", OverscrollBehaviorTypeToString(
+                                                 state_.overscroll_behavior.x));
   }
   if (state_.overscroll_behavior.y !=
       OverscrollBehavior::kOverscrollBehaviorTypeAuto) {
-    json->SetString("overscroll-behavior-y",
-                    blink::ToString(state_.overscroll_behavior.y));
+    json->SetString("overscroll-behavior-y", OverscrollBehaviorTypeToString(
+                                                 state_.overscroll_behavior.y));
+  }
+
+  if (state_.snap_container_data) {
+    json->SetString("snap_container_rect",
+                    state_.snap_container_data->rect().ToString().c_str());
+    if (state_.snap_container_data->size()) {
+      auto area_rects_json = JSONArray::Create();
+      for (size_t i = 0; i < state_.snap_container_data->size(); ++i) {
+        area_rects_json->PushString(
+            state_.snap_container_data->at(i).rect.ToString().c_str());
+      }
+      json->SetArray("snap_area_rects", std::move(area_rects_json));
+    }
   }
 
   return json;

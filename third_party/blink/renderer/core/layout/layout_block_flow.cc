@@ -2528,10 +2528,6 @@ scoped_refptr<NGLayoutResult> LayoutBlockFlow::CachedLayoutResult(
   return nullptr;
 }
 
-const NGConstraintSpace* LayoutBlockFlow::CachedConstraintSpace() const {
-  return nullptr;
-}
-
 scoped_refptr<NGLayoutResult> LayoutBlockFlow::CachedLayoutResultForTesting() {
   return nullptr;
 }
@@ -2540,13 +2536,14 @@ void LayoutBlockFlow::SetCachedLayoutResult(const NGConstraintSpace&,
                                             NGBreakToken*,
                                             scoped_refptr<NGLayoutResult>) {}
 
-void LayoutBlockFlow::SetPaintFragment(
-    const NGBreakToken*,
-    scoped_refptr<const NGPhysicalFragment>) {}
+void LayoutBlockFlow::SetPaintFragment(const NGBreakToken*,
+                                       scoped_refptr<const NGPhysicalFragment>,
+                                       NGPhysicalOffset) {}
 
 void LayoutBlockFlow::UpdatePaintFragmentFromCachedLayoutResult(
     const NGBreakToken*,
-    scoped_refptr<const NGPhysicalFragment>) {}
+    scoped_refptr<const NGPhysicalFragment>,
+    NGPhysicalOffset) {}
 
 void LayoutBlockFlow::ComputeOverflow(LayoutUnit old_client_after_edge,
                                       bool recompute_floats) {

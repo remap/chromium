@@ -9,6 +9,7 @@
 #include <string>
 
 #include "base/macros.h"
+#include "base/optional.h"
 #include "base/strings/string16.h"
 #include "ui/gfx/geometry/insets.h"
 #include "ui/gfx/geometry/size.h"
@@ -103,10 +104,10 @@ class IconLabelBubbleView : public views::InkDropObserver,
   // Returns true when the separator should be visible.
   virtual bool ShouldShowSeparator() const;
 
-  // Returns true when additional padding equal to GetPrefixedSeparatorWidth()
-  // should be added to the end of the view. This is useful in the case where
-  // it's required to layout subsequent views in the same position regardless
-  // of whether the separator is shown or not.
+  // Returns true when additional padding equal to
+  // GetWidthBetweenIconAndSeparator() should be added to the end of the view.
+  // This is useful in the case where it's required to layout subsequent views
+  // in the same position regardless of whether the separator is shown or not.
   virtual bool ShouldShowExtraEndSpace() const;
 
   // Returns a multiplier used to calculate the actual width of the view based
@@ -160,21 +161,33 @@ class IconLabelBubbleView : public views::InkDropObserver,
 
   gfx::Size GetSizeForLabelWidth(int label_width) const;
 
-  // Returns the width taken by the separator stroke and the before-padding.
-  // If the separator is not shown, and ShouldShowExtraEndSpace() is false,
-  // this returns 0.
-  int GetPrefixedSeparatorWidth() const;
+  // Returns the width after the icon and before the separator. If the
+  // separator is not shown, and ShouldShowExtraEndSpace() is false, this
+  // returns 0.
+  int GetWidthBetweenIconAndSeparator() const;
 
   // Set up for icons that animate their labels in and then out.
   void SetUpForInOutAnimation();
 
-  // Animates the view in and disables highlighting for hover and focus.
+  // Animates the view in and disables highlighting for hover and focus. If a
+  // |string_id| is provided it also sets/changes the label to that string.
   // TODO(bruthig): See https://crbug.com/669253. Since the ink drop highlight
   // currently cannot handle host resizes, the highlight needs to be disabled
   // when the animation is running.
-  void AnimateIn(int string_id);
+  void AnimateIn(base::Optional<int> string_id);
+
+  // Animates the view out.
+  void AnimateOut();
+
   void PauseAnimation();
   void UnpauseAnimation();
+
+  // Returns the current value of the slide animation
+  double GetAnimationValue() const;
+
+  // Sets the slide animation value without animating. |show| determines if
+  // the animation is set to fully shown or fully hidden.
+  void ResetSlideAnimation(bool show);
 
   // Returns true iff the slide animation has started, has not ended and is
   // currently paused.
@@ -189,8 +202,13 @@ class IconLabelBubbleView : public views::InkDropObserver,
   // to the suggestion text, like in the SelectedKeywordView.
   virtual int GetExtraInternalSpacing() const;
 
-  // Padding after the separator.
-  int GetEndPadding() const;
+  // Subclasses that want a different duration for the slide animation can
+  // override this method.
+  virtual int GetSlideDurationTime() const;
+
+  // Padding after the separator. If this separator is shown, this includes the
+  // separator width.
+  int GetEndPaddingWithSeparator() const;
 
   // The view has been activated by a user gesture such as spacebar.
   // Returns true if some handling was performed.
@@ -199,7 +217,13 @@ class IconLabelBubbleView : public views::InkDropObserver,
   // views::View:
   const char* GetClassName() const override;
 
+  // Disables highlights and calls Show on the slide animation, should not be
+  // called directly, use AnimateIn() instead, which handles label visibility.
   void ShowAnimation();
+
+  // Disables highlights and calls Hide on the slide animation, should not be
+  // called directly, use AnimateIn() instead, which handles label visibility.
+  void HideAnimation();
 
   // The contents of the bubble.
   views::ImageView* image_;

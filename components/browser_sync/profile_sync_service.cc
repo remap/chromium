@@ -24,7 +24,6 @@
 #include "components/pref_registry/pref_registry_syncable.h"
 #include "components/reading_list/features/reading_list_buildflags.h"
 #include "components/signin/core/browser/account_info.h"
-#include "components/signin/core/browser/signin_manager.h"
 #include "components/signin/core/browser/signin_metrics.h"
 #include "components/sync/base/bind_to_task_runner.h"
 #include "components/sync/base/cryptographer.h"
@@ -39,7 +38,6 @@
 #include "components/sync/driver/clear_server_data_events.h"
 #include "components/sync/driver/configure_context.h"
 #include "components/sync/driver/directory_data_type_controller.h"
-#include "components/sync/driver/signin_manager_wrapper.h"
 #include "components/sync/driver/sync_api_component_factory.h"
 #include "components/sync/driver/sync_driver_switches.h"
 #include "components/sync/driver/sync_error_controller.h"
@@ -68,7 +66,7 @@
 #include "components/sync_sessions/sessions_sync_manager.h"
 #include "components/sync_sessions/sync_sessions_client.h"
 #include "components/version_info/version_info_values.h"
-#include "net/url_request/url_request_context_getter.h"
+#include "services/identity/public/cpp/identity_manager.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
 
 using syncer::DataTypeController;
@@ -171,10 +169,10 @@ ProfileSyncService::InitParams::~InitParams() = default;
 ProfileSyncService::ProfileSyncService(InitParams init_params)
     : sync_client_(std::move(init_params.sync_client)),
       sync_prefs_(sync_client_->GetPrefService()),
-      signin_(std::move(init_params.signin_wrapper)),
+      identity_manager_(init_params.identity_manager),
       auth_manager_(std::make_unique<SyncAuthManager>(
           &sync_prefs_,
-          signin_ ? signin_->GetIdentityManager() : nullptr,
+          identity_manager_,
           base::BindRepeating(&ProfileSyncService::AccountStateChanged,
                               base::Unretained(this)),
           base::BindRepeating(&ProfileSyncService::CredentialsChanged,
@@ -190,7 +188,6 @@ ProfileSyncService::ProfileSyncService(InitParams init_params)
           init_params.signin_scoped_device_id_callback),
       network_time_update_callback_(
           std::move(init_params.network_time_update_callback)),
-      url_request_context_(init_params.url_request_context),
       url_loader_factory_(std::move(init_params.url_loader_factory)),
       is_first_time_sync_configure_(false),
       engine_initialized_(false),
@@ -453,7 +450,14 @@ void ProfileSyncService::AccountStateChanged() {
     StopImpl(CLEAR_DATA);
     DCHECK(!engine_);
   } else {
+#if !defined(OS_CHROMEOS)
+    // TODO(crbug.com/814787): SyncAuthManager shouldn't call us again if we
+    // already have the signed-in account, and hence we shouldn't have an engine
+    // here, but some tests on ChromeOS set the account without notifying, which
+    // get us into an inconsistent state. Since calling TryStart() again in that
+    // case isn't harmful, skip the DCHECK on ChromeOS for now.
     DCHECK(!engine_);
+#endif
     startup_controller_->TryStart(/*force_immediate=*/IsSetupInProgress());
   }
 }
@@ -885,7 +889,8 @@ bool ProfileSyncService::IsSyncConfirmationNeeded() const {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   return (!IsLocalSyncEnabled() && IsSignedIn()) && !IsSetupInProgress() &&
          !IsFirstSetupComplete() &&
-         !HasDisableReason(DISABLE_REASON_USER_CHOICE);
+         !HasDisableReason(DISABLE_REASON_USER_CHOICE) &&
+         IsAuthenticatedAccountPrimary();
 }
 
 void ProfileSyncService::UpdateLastSyncedTime() {
@@ -1155,9 +1160,10 @@ void ProfileSyncService::OnActionableError(
       // On every platform except ChromeOS, sign out the user after a dashboard
       // clear.
       if (!IsLocalSyncEnabled()) {
-        SigninManager::FromSigninManagerBase(signin_->GetSigninManager())
-            ->SignOut(signin_metrics::SERVER_FORCED_DISABLE,
-                      signin_metrics::SignoutDelete::IGNORE_METRIC);
+        identity_manager_->ClearPrimaryAccount(
+            identity::IdentityManager::ClearAccountTokensAction::kDefault,
+            signin_metrics::SERVER_FORCED_DISABLE,
+            signin_metrics::SignoutDelete::IGNORE_METRIC);
       }
 #endif
       break;
@@ -1611,17 +1617,26 @@ void ProfileSyncService::ConfigureDataTypeManager(
   DCHECK(!configure_context.cache_guid.empty());
   DCHECK_NE(configure_context.reason, syncer::CONFIGURE_REASON_UNKNOWN);
 
+  // Note: When local Sync is enabled, then we want full-sync mode (not just
+  // transport), even though Sync-the-feature is not considered enabled.
+  bool use_transport_only_mode =
+      !IsSyncFeatureEnabled() && !IsLocalSyncEnabled();
+
   syncer::ModelTypeSet types = GetPreferredDataTypes();
-  // If Sync-the-feature isn't fully enabled, then only a subset of data types
-  // is supported.
-  if (!IsSyncFeatureEnabled()) {
+  // In transport-only mode, only a subset of data types is supported.
+  if (use_transport_only_mode) {
     DCHECK(IsStandaloneTransportEnabled());
     syncer::ModelTypeSet allowed_types = {syncer::USER_CONSENTS};
 
     if (base::FeatureList::IsEnabled(
             autofill::features::kAutofillEnableAccountWalletStorage) &&
         base::FeatureList::IsEnabled(switches::kSyncUSSAutofillWalletData)) {
-      allowed_types.Put(syncer::AUTOFILL_WALLET_DATA);
+      if (!IsUsingSecondaryPassphrase() ||
+          base::FeatureList::IsEnabled(
+              switches::
+                  kSyncAllowWalletDataInTransportModeWithCustomPassphrase)) {
+        allowed_types.Put(syncer::AUTOFILL_WALLET_DATA);
+      }
     }
 
     types = Intersection(types, allowed_types);
@@ -1638,9 +1653,9 @@ void ProfileSyncService::ConfigureDataTypeManager(
     kMaxValue = kTransport
   };
   UMA_HISTOGRAM_ENUMERATION("Sync.ConfigureDataTypeManagerOption",
-                            IsSyncFeatureEnabled()
-                                ? ConfigureDataTypeManagerOption::kFeature
-                                : ConfigureDataTypeManagerOption::kTransport);
+                            use_transport_only_mode
+                                ? ConfigureDataTypeManagerOption::kTransport
+                                : ConfigureDataTypeManagerOption::kFeature);
 }
 
 syncer::UserShare* ProfileSyncService::GetUserShare() const {
@@ -2011,7 +2026,12 @@ void ProfileSyncService::GetAllNodes(
 
 AccountInfo ProfileSyncService::GetAuthenticatedAccountInfo() const {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  return auth_manager_->GetAuthenticatedAccountInfo();
+  return auth_manager_->GetActiveAccountInfo().account_info;
+}
+
+bool ProfileSyncService::IsAuthenticatedAccountPrimary() const {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  return auth_manager_->GetActiveAccountInfo().is_primary;
 }
 
 syncer::GlobalIdMapper* ProfileSyncService::GetGlobalIdMapper() const {

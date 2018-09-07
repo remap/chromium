@@ -228,8 +228,8 @@ TEST_F(ShelfBackgroundAnimatorTest, DefaultBackground) {
   PaintBackground(SHELF_BACKGROUND_DEFAULT);
 
   EXPECT_EQ(SHELF_BACKGROUND_DEFAULT, animator_->target_background_type());
-  EXPECT_EQ(0, observer_.GetBackgroundAlpha());
-  EXPECT_EQ(kShelfTranslucentAlpha, observer_.GetItemBackgroundAlpha());
+  EXPECT_EQ(kShelfTranslucentAlpha, observer_.GetBackgroundAlpha());
+  EXPECT_EQ(0, observer_.GetItemBackgroundAlpha());
 }
 
 // Verify the alpha values for the SHELF_BACKGROUND_OVERLAP state.
@@ -246,7 +246,8 @@ TEST_F(ShelfBackgroundAnimatorTest, MaximizedBackground) {
   PaintBackground(SHELF_BACKGROUND_MAXIMIZED);
 
   EXPECT_EQ(SHELF_BACKGROUND_MAXIMIZED, animator_->target_background_type());
-  EXPECT_EQ(kMaxAlpha, observer_.GetBackgroundAlpha());
+  EXPECT_EQ(kShelfTranslucentMaximizedWindowNewUi,
+            observer_.GetBackgroundAlpha());
   EXPECT_EQ(0, observer_.GetItemBackgroundAlpha());
 }
 
@@ -259,12 +260,19 @@ TEST_F(ShelfBackgroundAnimatorTest, SplitViewBackground) {
   EXPECT_EQ(0, observer_.GetItemBackgroundAlpha());
 }
 
+// Crashes on ChromeOS .  http://crbug.com/878944
+#if defined(OS_CHROMEOS)
+#define MAYBE_FullscreenAppListBackground DISABLED_FullscreenAppListBackground
+#else
+#define MAYBE_FullscreenAppListBackground FullscreenAppListBackground
+#endif
+
 // Verify the alpha values for the SHELF_BACKGROUND_APP_LIST state.
-TEST_F(ShelfBackgroundAnimatorTest, FullscreenAppListBackground) {
+TEST_F(ShelfBackgroundAnimatorTest, MAYBE_FullscreenAppListBackground) {
   PaintBackground(SHELF_BACKGROUND_APP_LIST);
 
   EXPECT_EQ(SHELF_BACKGROUND_APP_LIST, animator_->target_background_type());
-  EXPECT_EQ(0, observer_.GetBackgroundAlpha());
+  EXPECT_EQ(kShelfTranslucentOverAppList, observer_.GetBackgroundAlpha());
   EXPECT_EQ(0, observer_.GetItemBackgroundAlpha());
 }
 

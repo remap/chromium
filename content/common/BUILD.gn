@@ -133,7 +133,6 @@ source_set("common") {
     "gin_java_bridge_messages.h",
     "in_process_child_thread_params.cc",
     "in_process_child_thread_params.h",
-    "indexed_db/indexed_db_constants.h",
     "input/event_with_latency_info.h",
     "input/gesture_event_stream_validator.cc",
     "input/gesture_event_stream_validator.h",
@@ -571,12 +570,17 @@ mojom("mojo_bindings") {
   import_dirs = [ "//mojo/services" ]
 
   public_deps = [
+    # Due to component_deps below, we're depending on blink_common, but
+    # blink_common does not export generated types of components/payments/mojom,
+    # so we need to specifically add this dependency here.
+    "//components/payments/mojom",
     "//components/services/leveldb/public/interfaces",
     "//content/public/common:interfaces",
     "//content/public/common:resource_type_bindings",
     "//ipc:mojom_constants",
     "//media/mojo/interfaces",
     "//mojo/public/mojom/base",
+    "//services/audio/public/mojom",
     "//services/network/public/mojom",
     "//services/service_manager/public/mojom",
     "//services/video_capture/public/mojom",

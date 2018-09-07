@@ -222,6 +222,7 @@
           'cronet_smoketests_missing_native_library_instrumentation_apk',
           'cronet_smoketests_platform_only_instrumentation_apk',
           'cronet_test_instrumentation_apk',
+          'cronet_tests_android',
           'cronet_unittests_android',
           'net_unittests',
         ],
@@ -234,6 +235,7 @@
           'cronet_smoketests_missing_native_library_instrumentation_apk',
           'cronet_smoketests_platform_only_instrumentation_apk',
           'cronet_test_instrumentation_apk',
+          'cronet_tests_android',
           'cronet_unittests_android',
           'net_unittests',
         ],
@@ -248,6 +250,7 @@
           'cronet_smoketests_missing_native_library_instrumentation_apk',
           'cronet_smoketests_platform_only_instrumentation_apk',
           'cronet_test_instrumentation_apk',
+          'cronet_tests_android',
           'cronet_unittests_android',
           'net_unittests',
         ],
@@ -291,6 +294,7 @@
           'cronet_smoketests_missing_native_library_instrumentation_apk',
           'cronet_smoketests_platform_only_instrumentation_apk',
           'cronet_test_instrumentation_apk',
+          'cronet_tests_android',
           'cronet_unittests_android',
           'net_unittests',
         ],
@@ -303,6 +307,7 @@
           'cronet_smoketests_missing_native_library_instrumentation_apk',
           'cronet_smoketests_platform_only_instrumentation_apk',
           'cronet_test_instrumentation_apk',
+          'cronet_tests_android',
           'cronet_unittests_android',
           'net_unittests',
         ],
@@ -1065,7 +1070,7 @@
             {
               'gpu': '1002:6821',
               'hidpi': '1',
-              'os': 'Mac-10.13.5',
+              'os': 'Mac-10.13.6',
               'pool': 'Chrome-GPU',
             },
           ],
@@ -1083,7 +1088,7 @@
             {
               'gpu': '1002:6821',
               'hidpi': '1',
-              'os': 'Mac-10.13.5',
+              'os': 'Mac-10.13.6',
               'pool': 'Chrome-GPU',
             },
           ],
@@ -1660,7 +1665,7 @@
             {
               'gpu': '1002:6821',
               'hidpi': '1',
-              'os': 'Mac-10.13.5',
+              'os': 'Mac-10.13.6',
               'pool': 'Chrome-GPU',
             },
           ],
@@ -1694,7 +1699,7 @@
             {
               'gpu': '1002:6821',
               'hidpi': '1',
-              'os': 'Mac-10.13.5',
+              'os': 'Mac-10.13.6',
               'pool': 'Chrome-GPU',
             },
           ],
@@ -1712,7 +1717,7 @@
             {
               'gpu': '10de:0fe9',
               'hidpi': '1',
-              'os': 'Mac-10.13.5',
+              'os': 'Mac-10.13.6',
               'pool': 'Chrome-GPU',
             },
           ],
@@ -1730,7 +1735,7 @@
             {
               'gpu': '1002:6821',
               'hidpi': '1',
-              'os': 'Mac-10.13.5',
+              'os': 'Mac-10.13.6',
               'pool': 'Chrome-GPU',
             },
           ],
@@ -1748,7 +1753,7 @@
             {
               'gpu': '10de:0fe9',
               'hidpi': '1',
-              'os': 'Mac-10.13.5',
+              'os': 'Mac-10.13.6',
               'pool': 'Chrome-GPU',
             },
           ],
@@ -1888,7 +1893,7 @@
             {
               'gpu': '1002:6821',
               'hidpi': '1',
-              'os': 'Mac-10.13.5',
+              'os': 'Mac-10.13.6',
               'pool': 'Chrome-GPU',
             },
           ],
@@ -1906,7 +1911,7 @@
             {
               'gpu': '10de:0fe9',
               'hidpi': '1',
-              'os': 'Mac-10.13.5',
+              'os': 'Mac-10.13.6',
               'pool': 'Chrome-GPU',
             },
           ],
@@ -2346,7 +2351,7 @@
             {
               'gpu': '1002:6821',
               'hidpi': '1',
-              'os': 'Mac-10.13.5',
+              'os': 'Mac-10.13.6',
               'pool': 'Chrome-GPU',
             }
           ],
@@ -2468,6 +2473,15 @@
         'test_suites': {
           'gtest_tests': 'linux_viz_gtests',
           'isolated_scripts': 'linux_viz_isolated_scripts',
+        },
+      },
+      'linux-blink-animation-use-time-delta': {
+        'additional_compile_targets': [
+          'all',
+        ],
+        'test_suites': {
+          'gtest_tests': 'chromium_gtests',
+          'isolated_scripts': 'webkit_layout_tests_isolated_scripts',
         },
       },
       'linux-annotator-rel': {
@@ -3227,7 +3241,7 @@
             {
               'gpu': '1002:6821',
               'hidpi': '1',
-              'os': 'Mac-10.13.5',
+              'os': 'Mac-10.13.6',
               'pool': 'Chrome-GPU',
             }
           ],

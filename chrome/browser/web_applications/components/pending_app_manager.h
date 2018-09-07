@@ -31,6 +31,8 @@ class PendingAppManager {
   using RepeatingInstallCallback =
       base::RepeatingCallback<void(const GURL& app_url,
                                    const base::Optional<std::string>&)>;
+  using UninstallCallback =
+      base::RepeatingCallback<void(const GURL& app_url, bool succeeded)>;
 
   // How the app will be launched after installation.
   enum class LaunchContainer {
@@ -42,6 +44,13 @@ class PendingAppManager {
     kWindow,
   };
 
+  // What flags will be used when installing the app.
+  enum class InstallationFlag {
+    kNone,
+    kDefaultApp,
+    kFromPolicy,
+  };
+
   struct AppInfo {
     static AppInfo Create(GURL url,
                           LaunchContainer launch_container,
@@ -49,6 +58,9 @@ class PendingAppManager {
     static AppInfo CreateForDefaultApp(GURL url,
                                        LaunchContainer launch_container,
                                        bool create_shortcuts = true);
+    static AppInfo CreateForPolicy(GURL url,
+                                   LaunchContainer launch_container,
+                                   bool create_shortcuts = true);
 
     // Prefer static methods above.
     AppInfo(AppInfo&& other);
@@ -61,13 +73,13 @@ class PendingAppManager {
     const GURL url;
     const LaunchContainer launch_container;
     const bool create_shortcuts;
-    const bool is_default_app;
+    const InstallationFlag installation_flag;
 
    private:
     AppInfo(GURL url,
             LaunchContainer launch_container,
             bool create_shortcuts,
-            bool is_default_app);
+            InstallationFlag installation_flag);
 
     DISALLOW_COPY_AND_ASSIGN(AppInfo);
   };
@@ -93,6 +105,14 @@ class PendingAppManager {
   // installation actually succeeded.
   virtual void InstallApps(std::vector<AppInfo> apps_to_install,
                            const RepeatingInstallCallback& callback) = 0;
+
+  // Adds |apps_to_uninstall| to the queue of operations. Runs |callback|
+  // with the URL of the corresponding app in |apps_to_install| and with a
+  // bool indicating whether or not the uninstall succeeded. Runs |callback|
+  // for every completed uninstallation - whether or not the uninstallation
+  // actually succeeded.
+  virtual void UninstallApps(std::vector<GURL> apps_to_uninstall,
+                             const UninstallCallback& callback) = 0;
 
   DISALLOW_COPY_AND_ASSIGN(PendingAppManager);
 };

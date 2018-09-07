@@ -347,16 +347,19 @@ AppsGridView::AppsGridView(ContentsView* contents_view,
     all_apps_indicator_ = new IndicatorChipView(
         l10n_util::GetStringUTF16(IDS_ALL_APPS_INDICATOR));
     AddChildView(all_apps_indicator_);
-    if (features::IsBackgroundBlurEnabled()) {
-      // TODO(newcomer): Improve implementation of the mask layer so we can
-      // enable it on all devices crbug.com/765292.
-      fadeout_layer_delegate_ = std::make_unique<FadeoutLayerDelegate>();
-      layer()->SetMaskLayer(fadeout_layer_delegate_->layer());
-    }
 
     expand_arrow_view_ =
         new ExpandArrowView(contents_view_, contents_view_->app_list_view());
     AddChildView(expand_arrow_view_);
+  }
+
+  if (!folder_delegate_ && features::IsBackgroundBlurEnabled()) {
+    // TODO(newcomer): Improve implementation of the mask layer so we can
+    // enable it on all devices https://crbug.com/765292.
+    fadeout_layer_delegate_ = std::make_unique<FadeoutLayerDelegate>();
+    layer()->SetMaskLayer(fadeout_layer_delegate_->layer());
+    if (is_new_style_launcher_enabled_)
+      SetBorder(views::CreateEmptyBorder(gfx::Insets(kFadeoutZoneHeight, 0)));
   }
 
   pagination_model_.SetTransitionDurations(kPageTransitionDurationInMs,
@@ -788,7 +791,7 @@ void AppsGridView::InitiateDragFromReparentItemInRootLevelGridView(
   drag_start_page_ = pagination_model_.selected_page();
   drag_start_grid_view_ = drag_point;
 
-  drag_view_start_ = gfx::Point(drag_view_->x(), drag_view_->y());
+  drag_view_start_ = drag_view_->origin();
 
   // Set the flag in root level grid view.
   dragging_for_reparent_item_ = true;
@@ -807,6 +810,10 @@ void AppsGridView::UpdateDragFromReparentItem(Pointer pointer,
 
 bool AppsGridView::IsDraggedView(const AppListItemView* view) const {
   return drag_view_ == view;
+}
+
+bool AppsGridView::IsDragViewMoved(const AppListItemView& view) const {
+  return IsDraggedView(&view) && drag_view_start_ != view.origin();
 }
 
 void AppsGridView::ClearDragState() {
@@ -1098,8 +1105,8 @@ void AppsGridView::UpdatePulsingBlockViews() {
 }
 
 AppListItemView* AppsGridView::CreateViewForItemAtIndex(size_t index) {
-  // The drag_view_ might be pending for deletion, therefore view_model_
-  // may have one more item than item_list_.
+  // The |drag_view_| might be pending for deletion, therefore |view_model_|
+  // may have one more item than |item_list_|.
   DCHECK_LE(index, item_list_->item_count());
   AppListItemView* view = new AppListItemView(
       this, item_list_->item_at(index),

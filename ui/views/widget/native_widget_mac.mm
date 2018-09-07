@@ -36,6 +36,8 @@
 #include "ui/views/widget/widget_delegate.h"
 #include "ui/views/window/native_frame_view.h"
 
+using views_bridge_mac::mojom::WindowVisibilityState;
+
 namespace views {
 namespace {
 
@@ -149,7 +151,8 @@ void NativeWidgetMac::InitNativeWidget(const Widget::InitParams& params) {
 
   DCHECK(GetWidget()->GetRootView());
   bridge_host_->SetRootView(GetWidget()->GetRootView());
-  bridge()->CreateContentView(GetWidget()->GetRootView());
+  bridge()->CreateContentView(GetWidget()->GetRootView()->bounds());
+  bridge()->CreateDragDropClient(GetWidget()->GetRootView());
   if (auto* focus_manager = GetWidget()->GetFocusManager()) {
     bridge()->MakeFirstResponder();
     bridge_host_->SetFocusManager(focus_manager);
@@ -404,8 +407,8 @@ void NativeWidgetMac::Show(ui::WindowShowState show_state,
   }
   bridge()->SetVisibilityState(
       show_state == ui::SHOW_STATE_INACTIVE
-          ? BridgedNativeWidgetPublic::SHOW_INACTIVE
-          : BridgedNativeWidgetPublic::SHOW_AND_ACTIVATE_WINDOW);
+          ? WindowVisibilityState::kShowInactive
+          : WindowVisibilityState::kShowAndActivateWindow);
 
   // Ignore the SetInitialFocus() result. BridgedContentView should get
   // firstResponder status regardless.
@@ -415,7 +418,7 @@ void NativeWidgetMac::Show(ui::WindowShowState show_state,
 void NativeWidgetMac::Hide() {
   if (!bridge())
     return;
-  bridge()->SetVisibilityState(BridgedNativeWidgetPublic::HIDE_WINDOW);
+  bridge()->SetVisibilityState(WindowVisibilityState::kHideWindow);
 }
 
 bool NativeWidgetMac::IsVisible() const {
@@ -425,8 +428,7 @@ bool NativeWidgetMac::IsVisible() const {
 void NativeWidgetMac::Activate() {
   if (!bridge())
     return;
-  bridge()->SetVisibilityState(
-      BridgedNativeWidgetPublic::SHOW_AND_ACTIVATE_WINDOW);
+  bridge()->SetVisibilityState(WindowVisibilityState::kShowAndActivateWindow);
 }
 
 void NativeWidgetMac::Deactivate() {

@@ -46,15 +46,13 @@
 #include "google_apis/gaia/google_service_auth_error.h"
 #include "url/gurl.h"
 
-class SigninManagerWrapper;
-
 namespace base {
 class MessageLoop;
 }
 
-namespace net {
-class URLRequestContextGetter;
-}  // namespace net
+namespace identity {
+class IdentityManager;
+}
 
 namespace network {
 class SharedURLLoaderFactory;
@@ -212,12 +210,11 @@ class ProfileSyncService : public syncer::SyncService,
     ~InitParams();
 
     std::unique_ptr<syncer::SyncClient> sync_client;
-    std::unique_ptr<SigninManagerWrapper> signin_wrapper;
+    identity::IdentityManager* identity_manager;
     SigninScopedDeviceIdCallback signin_scoped_device_id_callback;
     GaiaCookieManagerService* gaia_cookie_manager_service = nullptr;
     StartBehavior start_behavior = MANUAL_START;
     syncer::NetworkTimeUpdateCallback network_time_update_callback;
-    scoped_refptr<net::URLRequestContextGetter> url_request_context;
     scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory;
     std::string debug_identifier;
     version_info::Channel channel = version_info::Channel::UNKNOWN;
@@ -293,6 +290,7 @@ class ProfileSyncService : public syncer::SyncService,
   void GetAllNodes(const base::Callback<void(std::unique_ptr<base::ListValue>)>&
                        callback) override;
   AccountInfo GetAuthenticatedAccountInfo() const override;
+  bool IsAuthenticatedAccountPrimary() const override;
   syncer::GlobalIdMapper* GetGlobalIdMapper() const override;
 
   // Add a sync type preference provider. Each provider may only be added once.
@@ -626,8 +624,8 @@ class ProfileSyncService : public syncer::SyncService,
   syncer::SyncPrefs sync_prefs_;
 
   // Encapsulates user signin - used to set/get the user's authenticated
-  // email address.
-  const std::unique_ptr<SigninManagerWrapper> signin_;
+  // email address and sign-out upon error.
+  identity::IdentityManager* const identity_manager_;
 
   // Handles tracking of the authenticated account and acquiring access tokens.
   // Only null after Shutdown().
@@ -675,9 +673,6 @@ class ProfileSyncService : public syncer::SyncService,
 
   // Callback to update the network time; used for initializing the engine.
   syncer::NetworkTimeUpdateCallback network_time_update_callback_;
-
-  // The request context in which sync should operate.
-  scoped_refptr<net::URLRequestContextGetter> url_request_context_;
 
   // The URL loader factory for the sync.
   scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory_;

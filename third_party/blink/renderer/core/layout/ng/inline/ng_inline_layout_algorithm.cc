@@ -19,6 +19,7 @@
 #include "third_party/blink/renderer/core/layout/ng/inline/ng_text_fragment_builder.h"
 #include "third_party/blink/renderer/core/layout/ng/list/layout_ng_list_marker.h"
 #include "third_party/blink/renderer/core/layout/ng/list/ng_unpositioned_list_marker.h"
+#include "third_party/blink/renderer/core/layout/ng/ng_block_break_token.h"
 #include "third_party/blink/renderer/core/layout/ng/ng_box_fragment.h"
 #include "third_party/blink/renderer/core/layout/ng/ng_constraint_space.h"
 #include "third_party/blink/renderer/core/layout/ng/ng_floats_utils.h"
@@ -376,7 +377,7 @@ void NGInlineLayoutAlgorithm::PlaceControlItem(const NGInlineItem& item,
 // Place a generated content that does not exist in DOM nor in LayoutObject
 // tree.
 void NGInlineLayoutAlgorithm::PlaceGeneratedContent(
-    scoped_refptr<NGPhysicalFragment> fragment,
+    scoped_refptr<const NGPhysicalFragment> fragment,
     UBiDiLevel bidi_level,
     NGInlineBoxState* box) {
   LayoutUnit inline_size = IsHorizontalWritingMode() ? fragment->Size().width
@@ -811,7 +812,6 @@ scoped_refptr<NGLayoutResult> NGInlineLayoutAlgorithm::Layout() {
 unsigned NGInlineLayoutAlgorithm::PositionLeadingFloats(
     NGExclusionSpace* exclusion_space) {
   const Vector<NGInlineItem>& items = Node().ItemsData(false).items;
-  LayoutUnit bfc_line_offset = ConstraintSpace().BfcOffset().line_offset;
 
   unsigned index = BreakToken() ? BreakToken()->ItemIndex() : 0;
   for (; index < items.size(); ++index) {
@@ -820,13 +820,9 @@ unsigned NGInlineLayoutAlgorithm::PositionLeadingFloats(
     if (item.Type() == NGInlineItem::kFloating) {
       NGBlockNode node(ToLayoutBox(item.GetLayoutObject()));
 
-      scoped_refptr<NGUnpositionedFloat> unpositioned_float =
-          NGUnpositionedFloat::Create(
-              ConstraintSpace().AvailableSize(),
-              ConstraintSpace().PercentageResolutionSize(), bfc_line_offset,
-              bfc_line_offset, node, /* break_token */ nullptr);
-      AddUnpositionedFloat(&unpositioned_floats_, &container_builder_,
-                           std::move(unpositioned_float));
+      AddUnpositionedFloat(
+          &unpositioned_floats_, &container_builder_,
+          NGUnpositionedFloat(node, /* break_token */ nullptr));
     }
 
     // Abort if we've found something that makes this a non-empty inline.
@@ -860,11 +856,14 @@ void NGInlineLayoutAlgorithm::PositionPendingFloats(
           ? container_builder_.BfcBlockOffset().value()
           : ConstraintSpace().FloatsBfcBlockOffset().value();
 
-  LayoutUnit origin_block_offset = bfc_block_offset + content_size;
+  NGBfcOffset origin_bfc_offset = {ConstraintSpace().BfcOffset().line_offset,
+                                   bfc_block_offset + content_size};
 
   const Vector<NGPositionedFloat> positioned_floats =
-      PositionFloats(origin_block_offset, bfc_block_offset,
-                     unpositioned_floats_, ConstraintSpace(), exclusion_space);
+      PositionFloats(ConstraintSpace().AvailableSize(),
+                     ConstraintSpace().PercentageResolutionSize(),
+                     origin_bfc_offset, bfc_block_offset, unpositioned_floats_,
+                     ConstraintSpace(), exclusion_space);
 
   positioned_floats_.AppendVector(positioned_floats);
   unpositioned_floats_.clear();

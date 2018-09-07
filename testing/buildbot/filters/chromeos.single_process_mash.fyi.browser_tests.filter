@@ -98,16 +98,7 @@
 -KeyboardEndToEndTest.OpenIfFocusedOnClick
 -KeyboardEndToEndTest.OpenOnlyOnSyncFocus
 
-# Kiosk tests.
--KioskEnterpriseTest.PrivateStore
--KioskTest.AutolaunchWarningConfirm
--KioskTest.InstallAndLaunchApp
--KioskTest.LaunchAppNetworkDown
--KioskTest.LaunchAppNetworkDownConfigureNotAllowed
--KioskTest.LaunchInDiagnosticMode
--KioskTest.NotSignedInWithGAIAAccount
-
-# login_display_host == NULL || login_display_host->GetNativeWindow()->layer()->GetTargetOpacity() == 0.0f
+# Timeout in extensions::ResultCatcher::GetNextResult().
 -KioskVirtualKeyboardTest.RestrictFeatures
 
 # Launcher tests.

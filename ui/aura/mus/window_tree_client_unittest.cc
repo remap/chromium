@@ -73,13 +73,13 @@ const char kTestPropertyServerKey1[] = "test-property-server1";
 const char kTestPropertyServerKey2[] = "test-property-server2";
 const char kTestPropertyServerKey3[] = "test-property-server3";
 
-ui::Id server_id(Window* window) {
+ws::Id server_id(Window* window) {
   return window ? WindowMus::Get(window)->server_id() : 0;
 }
 
 std::unique_ptr<Window> CreateWindowUsingId(
     WindowTreeClient* window_tree_client,
-    ui::Id server_id,
+    ws::Id server_id,
     Window* parent = nullptr) {
   ws::mojom::WindowData window_data;
   window_data.window_id = server_id;
@@ -150,6 +150,11 @@ class TestScreenPositionClient : public client::ScreenPositionClient {
 
   DISALLOW_COPY_AND_ASSIGN(TestScreenPositionClient);
 };
+
+void OnWindowMoveDone(int* call_count, bool* last_result, bool result) {
+  (*call_count)++;
+  *last_result = result;
+}
 
 }  // namespace
 
@@ -446,7 +451,7 @@ TEST_P(WindowTreeClientTestSurfaceSync, SetBoundsLocalSurfaceIdChanges) {
 // Verifies a new window from the server doesn't result in attempting to add
 // the window back to the server.
 TEST_F(WindowTreeClientTest, AddFromServerDoesntAddAgain) {
-  const ui::Id child_window_id = server_id(root_window()) + 11;
+  const ws::Id child_window_id = server_id(root_window()) + 11;
   ws::mojom::WindowDataPtr data = ws::mojom::WindowData::New();
   data->parent_id = server_id(root_window());
   data->window_id = child_window_id;
@@ -488,7 +493,7 @@ TEST_F(WindowTreeClientTest, ReparentFromServerDoesntAddAgain) {
 TEST_F(WindowTreeClientTest, OnWindowHierarchyChangedWithProperties) {
   RegisterTestProperties(GetPropertyConverter());
   window_tree()->AckAllChanges();
-  const ui::Id child_window_id = server_id(root_window()) + 11;
+  const ws::Id child_window_id = server_id(root_window()) + 11;
   ws::mojom::WindowDataPtr data = ws::mojom::WindowData::New();
   const uint8_t server_test_property1_value = 91;
   data->properties[kTestPropertyServerKey1] =
@@ -2467,7 +2472,7 @@ TEST_F(WindowTreeClientTest, OnWindowHierarchyChangedWithExistingWindow) {
   Window* window2 = new Window(nullptr);
   window2->Init(ui::LAYER_NOT_DRAWN);
   window_tree()->AckAllChanges();
-  const ui::Id server_window_id = server_id(root_window()) + 11;
+  const ws::Id server_window_id = server_id(root_window()) + 11;
   ws::mojom::WindowDataPtr data1 = ws::mojom::WindowData::New();
   ws::mojom::WindowDataPtr data2 = ws::mojom::WindowData::New();
   ws::mojom::WindowDataPtr data3 = ws::mojom::WindowData::New();
@@ -2705,6 +2710,49 @@ TEST_F(WindowTreeClientTest, ChangeFocusInEmbedRootWindow) {
       .CallOnEmbedFromToken(embed_root.get());
   ASSERT_TRUE(embed_root->window());
   window_tree_client()->OnWindowFocused(server_id(embed_root->window()));
+}
+
+TEST_F(WindowTreeClientTest, PerformWindowMove) {
+  int call_count = 0;
+  bool last_result = false;
+
+  WindowTreeHostMus* host_mus = static_cast<WindowTreeHostMus*>(host());
+  host_mus->PerformWindowMove(
+      ws::mojom::MoveLoopSource::MOUSE, gfx::Point(),
+      base::Bind(&OnWindowMoveDone, &call_count, &last_result));
+  EXPECT_EQ(0, call_count);
+
+  window_tree()->AckAllChanges();
+  EXPECT_EQ(1, call_count);
+  EXPECT_TRUE(last_result);
+
+  host_mus->PerformWindowMove(
+      ws::mojom::MoveLoopSource::MOUSE, gfx::Point(),
+      base::Bind(&OnWindowMoveDone, &call_count, &last_result));
+  window_tree()->AckAllChangesOfType(WindowTreeChangeType::OTHER, false);
+  EXPECT_EQ(2, call_count);
+  EXPECT_FALSE(last_result);
+}
+
+TEST_F(WindowTreeClientTest, PerformWindowMoveDoneAfterDelete) {
+  int call_count = 0;
+  bool last_result = false;
+
+  auto host_mus = std::make_unique<WindowTreeHostMus>(
+      CreateInitParamsForTopLevel(window_tree_client_impl()));
+  host_mus->InitHost();
+  window_tree()->AckAllChanges();
+
+  host_mus->PerformWindowMove(
+      ws::mojom::MoveLoopSource::MOUSE, gfx::Point(),
+      base::Bind(&OnWindowMoveDone, &call_count, &last_result));
+  EXPECT_EQ(0, call_count);
+
+  host_mus.reset();
+  window_tree()->AckAllChanges();
+
+  EXPECT_EQ(1, call_count);
+  EXPECT_TRUE(last_result);
 }
 
 }  // namespace aura

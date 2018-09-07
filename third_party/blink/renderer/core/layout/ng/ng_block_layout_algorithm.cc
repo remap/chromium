@@ -322,8 +322,8 @@ base::Optional<MinMaxSize> NGBlockLayoutAlgorithm::ComputeMinMaxSize(
   DCHECK_GE(sizes.min_size, LayoutUnit());
   DCHECK_LE(sizes.min_size, sizes.max_size) << Node().ToString();
 
-  sizes +=
-      CalculateBorderScrollbarPadding(ConstraintSpace(), node_).InlineSum();
+  if (input.size_type == NGMinMaxSizeType::kBorderBoxSize)
+    sizes += border_padding.InlineSum() + node_.GetScrollbarSizes().InlineSum();
   return sizes;
 }
 
@@ -710,16 +710,8 @@ void NGBlockLayoutAlgorithm::HandleFloat(
     const NGPreviousInflowPosition& previous_inflow_position,
     NGBlockNode child,
     NGBlockBreakToken* child_break_token) {
-  LayoutUnit origin_inline_offset =
-      ConstraintSpace().BfcOffset().line_offset +
-      border_scrollbar_padding_.LineLeft(ConstraintSpace().Direction());
-
-  scoped_refptr<NGUnpositionedFloat> unpositioned_float =
-      NGUnpositionedFloat::Create(
-          child_available_size_, child_percentage_size_, origin_inline_offset,
-          ConstraintSpace().BfcOffset().line_offset, child, child_break_token);
   AddUnpositionedFloat(&unpositioned_floats_, &container_builder_,
-                       unpositioned_float);
+                       NGUnpositionedFloat(child, child_break_token));
 
   // If there is a break token for a float we must be resuming layout, we must
   // always know our position in the BFC.
@@ -1074,14 +1066,6 @@ bool NGBlockLayoutAlgorithm::HandleInflow(
 
   bool is_non_empty_inline =
       child.IsInline() && !ToNGInlineNode(child).IsEmptyInline();
-
-  // We update marker text in WillCollectInlines(). If ListItem isn't
-  // ChildrenInline(), we should WillCollectInlines() manually.
-  if (Node().IsListItem() && !child.IsInline()) {
-    LayoutBlockFlow* block = ToLayoutBlockFlow(Node().GetLayoutBox());
-    block->WillCollectInlines();
-  }
-
   bool has_clearance_past_adjoining_floats =
       child.IsBlock() &&
       HasClearancePastAdjoiningFloats(container_builder_.AdjoiningFloatTypes(),
@@ -2066,14 +2050,20 @@ void NGBlockLayoutAlgorithm::PositionPendingFloats(
          ConstraintSpace().FloatsBfcBlockOffset())
       << "The parent BFC block offset should be known here";
 
+  NGBfcOffset origin_bfc_offset = {
+      ConstraintSpace().BfcOffset().line_offset +
+          border_scrollbar_padding_.LineLeft(ConstraintSpace().Direction()),
+      origin_block_offset};
+
   LayoutUnit bfc_block_offset =
       container_builder_.BfcBlockOffset()
           ? container_builder_.BfcBlockOffset().value()
           : ConstraintSpace().FloatsBfcBlockOffset().value();
 
-  const auto positioned_floats = PositionFloats(
-      origin_block_offset, bfc_block_offset, unpositioned_floats_,
-      ConstraintSpace(), exclusion_space_.get());
+  const auto positioned_floats =
+      PositionFloats(child_available_size_, child_percentage_size_,
+                     origin_bfc_offset, bfc_block_offset, unpositioned_floats_,
+                     ConstraintSpace(), exclusion_space_.get());
 
   AddPositionedFloats(positioned_floats);
 

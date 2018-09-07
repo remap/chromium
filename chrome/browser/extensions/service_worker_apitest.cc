@@ -671,6 +671,25 @@ IN_PROC_BROWSER_TEST_P(ServiceWorkerTest, FetchArbitraryPaths) {
             NavigateAndExtractInnerText(extension->GetResourceURL("")));
 }
 
+IN_PROC_BROWSER_TEST_P(ServiceWorkerTest,
+                       FetchExtensionResourceFromServiceWorker) {
+  const Extension* extension =
+      StartTestFromBackgroundPage("fetch_from_sw.js", kExpectSuccess);
+  ASSERT_TRUE(extension);
+
+  // The service worker in this test tries to load 'hello.txt' via fetch()
+  // and sends back the content of the file, which should be 'hello'.
+  const char* kScript = R"(
+    let channel = new MessageChannel();
+    test.waitForMessage(channel.port1).then(message => {
+      window.domAutomationController.send(message);
+    });
+    test.registeredServiceWorker.postMessage(
+        {port: channel.port2}, [channel.port2]);
+  )";
+  EXPECT_EQ("hello", ExecuteScriptInBackgroundPage(extension->id(), kScript));
+}
+
 IN_PROC_BROWSER_TEST_P(ServiceWorkerTest, SWServedBackgroundPageReceivesEvent) {
   const Extension* extension =
       StartTestFromBackgroundPage("replace_background.js", kExpectSuccess);
@@ -876,13 +895,7 @@ IN_PROC_BROWSER_TEST_P(ServiceWorkerTest, WebAccessibleResourcesFetch) {
       "service_worker/web_accessible_resources/fetch/", "page.html"));
 }
 
-// Flaky on Linux: http://crbug/810397.
-#if defined(OS_LINUX)
-#define MAYBE_TabsCreate DISABLED_TabsCreate
-#else
-#define MAYBE_TabsCreate TabsCreate
-#endif
-IN_PROC_BROWSER_TEST_P(ServiceWorkerTest, MAYBE_TabsCreate) {
+IN_PROC_BROWSER_TEST_P(ServiceWorkerTest, TabsCreate) {
   if (IsMacViewsMode())
     return;
   // Extensions APIs from SW are only enabled on trunk.
@@ -973,6 +986,7 @@ IN_PROC_BROWSER_TEST_P(ServiceWorkerLazyBackgroundTest,
 
   ProcessManager* pm = ProcessManager::Get(browser()->profile());
   EXPECT_GT(pm->GetLazyKeepaliveCount(extension), 0);
+  EXPECT_FALSE(pm->GetLazyKeepaliveActivities(extension).empty());
 
   // |extension|'s background page opens a tab to its resource.
   content::WebContents* extension_web_contents =
@@ -1031,6 +1045,7 @@ IN_PROC_BROWSER_TEST_P(ServiceWorkerLazyBackgroundTest,
 
   ProcessManager* pm = ProcessManager::Get(browser()->profile());
   EXPECT_GT(pm->GetLazyKeepaliveCount(extension), 0);
+  EXPECT_FALSE(pm->GetLazyKeepaliveActivities(extension).empty());
 
   // |extension|'s background page opens a tab to its resource.
   content::WebContents* extension_web_contents =

@@ -12,7 +12,9 @@ import android.view.View.OnTouchListener;
 import android.view.ViewGroup;
 import android.view.ViewStub;
 
+import org.chromium.base.ApiCompatibilityUtils;
 import org.chromium.chrome.R;
+import org.chromium.chrome.browser.appmenu.AppMenuButtonHelper;
 import org.chromium.chrome.browser.compositor.layouts.LayoutManager;
 import org.chromium.chrome.browser.compositor.layouts.OverviewModeBehavior;
 import org.chromium.chrome.browser.compositor.layouts.ToolbarSwipeLayout;
@@ -22,7 +24,6 @@ import org.chromium.chrome.browser.modelutil.PropertyModelChangeProcessor;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.toolbar.BottomToolbarViewBinder.ViewHolder;
 import org.chromium.chrome.browser.toolbar.ToolbarButtonSlotData.ToolbarButtonData;
-import org.chromium.chrome.browser.util.ColorUtils;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.resources.ResourceManager;
 
@@ -47,6 +48,12 @@ public class BottomToolbarCoordinator {
 
     /** The dark mode tint to be used in bottom toolbar buttons. */
     private final ColorStateList mDarkModeTint;
+
+    /** The primary color to be used in normal mode. */
+    private final int mNormalPrimaryColor;
+
+    /** The primary color to be used in incognito mode. */
+    private final int mIncognitoPrimaryColor;
 
     /**
      * Build the coordinator that manages the bottom toolbar.
@@ -74,9 +81,6 @@ public class BottomToolbarCoordinator {
                         model, new ViewHolder(toolbarRoot), new BottomToolbarViewBinder());
         model.addObserver(processor);
 
-        mMediator = new BottomToolbarMediator(
-                model, fullscreenManager, root.getResources(), firstSlotData, secondSlotData);
-
         mTabSwitcherButtonCoordinator = new TabSwitcherButtonCoordinator(toolbarRoot);
         mMenuButton = toolbarRoot.findViewById(R.id.menu_button_wrapper);
 
@@ -84,6 +88,14 @@ public class BottomToolbarCoordinator {
                 AppCompatResources.getColorStateList(root.getContext(), R.color.light_mode_tint);
         mDarkModeTint =
                 AppCompatResources.getColorStateList(root.getContext(), R.color.dark_mode_tint);
+
+        mNormalPrimaryColor =
+                ApiCompatibilityUtils.getColor(root.getResources(), R.color.modern_primary_color);
+        mIncognitoPrimaryColor = ApiCompatibilityUtils.getColor(
+                root.getResources(), R.color.incognito_modern_primary_color);
+
+        mMediator = new BottomToolbarMediator(model, fullscreenManager, root.getResources(),
+                firstSlotData, secondSlotData, mNormalPrimaryColor);
     }
 
     /**
@@ -106,7 +118,7 @@ public class BottomToolbarCoordinator {
      *                                        switcher mode.
      */
     public void initializeWithNative(ResourceManager resourceManager, LayoutManager layoutManager,
-            OnClickListener tabSwitcherListener, OnTouchListener menuButtonListener,
+            OnClickListener tabSwitcherListener, AppMenuButtonHelper menuButtonHelper,
             TabModelSelector tabModelSelector, OverviewModeBehavior overviewModeBehavior,
             WindowAndroid windowAndroid, ToolbarButtonData firstSlotTabSwitcherButtonData,
             ToolbarButtonData secondSlotTabSwitcherButtonData) {
@@ -121,7 +133,8 @@ public class BottomToolbarCoordinator {
         mTabSwitcherButtonCoordinator.setTabSwitcherListener(tabSwitcherListener);
         mTabSwitcherButtonCoordinator.setTabModelSelector(tabModelSelector);
 
-        mMenuButton.setTouchListener(menuButtonListener);
+        mMenuButton.setTouchListener(menuButtonHelper);
+        mMenuButton.setAccessibilityDelegate(menuButtonHelper);
     }
 
     /**
@@ -158,11 +171,10 @@ public class BottomToolbarCoordinator {
         return mMenuButton.getMenuButton();
     }
 
-    public void setPrimaryColor(int color) {
-        mMediator.setPrimaryColor(color);
+    public void setIncognito(boolean isIncognito) {
+        mMediator.setPrimaryColor(isIncognito ? mIncognitoPrimaryColor : mNormalPrimaryColor);
 
-        final boolean useLight = ColorUtils.shouldUseLightForegroundOnBackground(color);
-        final ColorStateList tint = useLight ? mLightModeTint : mDarkModeTint;
+        final ColorStateList tint = isIncognito ? mLightModeTint : mDarkModeTint;
         mTabSwitcherButtonCoordinator.setTint(tint);
         mMenuButton.setTint(tint);
     }

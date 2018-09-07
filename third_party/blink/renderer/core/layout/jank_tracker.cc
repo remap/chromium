@@ -15,7 +15,7 @@
 
 namespace blink {
 
-static constexpr TimeDelta kTimerDelay = TimeDelta::FromSeconds(3);
+static constexpr TimeDelta kTimerDelay = TimeDelta::FromMilliseconds(500);
 static const float kRegionGranularitySteps = 60.0;
 static const float kMovementThreshold = 3.0;  // CSS pixels.
 
@@ -57,13 +57,29 @@ static bool SmallerThanRegionGranularity(const LayoutRect& rect,
          rect.Height().ToFloat() * granularity_scale < 0.5;
 }
 
+#ifdef TRACE_JANK_REGIONS
+static void RegionToTracedValue(const Region& region,
+                                double granularity_scale,
+                                TracedValue& value) {
+  value.BeginArray("region_rects");
+  for (const IntRect& rect : region.Rects()) {
+    value.BeginArray();
+    value.PushInteger(clampTo<int>(roundf(rect.X() / granularity_scale)));
+    value.PushInteger(clampTo<int>(roundf(rect.Y() / granularity_scale)));
+    value.PushInteger(clampTo<int>(roundf(rect.Width() / granularity_scale)));
+    value.PushInteger(clampTo<int>(roundf(rect.Height() / granularity_scale)));
+    value.EndArray();
+  }
+  value.EndArray();
+}
+#endif  // TRACE_JANK_REGIONS
+
 JankTracker::JankTracker(LocalFrameView* frame_view)
     : frame_view_(frame_view),
       score_(0.0),
       timer_(frame_view->GetFrame().GetTaskRunner(TaskType::kInternalDefault),
              this,
              &JankTracker::TimerFired),
-      has_fired_(false),
       max_distance_(0.0) {}
 
 void JankTracker::NotifyObjectPrePaint(const LayoutObject& object,
@@ -137,17 +153,12 @@ void JankTracker::NotifyObjectPrePaint(const LayoutObject& object,
 }
 
 void JankTracker::NotifyPrePaintFinished() {
-  if (!IsActive())
+  if (!IsActive() || region_.IsEmpty())
     return;
-
-  if (region_.IsEmpty()) {
-    if (!timer_.IsActive())
-      timer_.StartOneShot(kTimerDelay, FROM_HERE);
-    return;
-  }
 
   IntRect viewport = frame_view_->GetScrollableArea()->VisibleContentRect();
-  viewport.Scale(RegionGranularityScale(viewport));
+  double granularity_scale = RegionGranularityScale(viewport);
+  viewport.Scale(granularity_scale);
   double viewport_area = double(viewport.Width()) * double(viewport.Height());
 
   double jank_fraction = region_.Area() / viewport_area;
@@ -156,10 +167,27 @@ void JankTracker::NotifyPrePaintFinished() {
   DVLOG(1) << "viewport " << (jank_fraction * 100)
            << "% janked, raising score to " << score_;
 
-  TRACE_EVENT_INSTANT1("loading", "FrameLayoutJank", TRACE_EVENT_SCOPE_THREAD,
-                       "viewportFraction", jank_fraction);
+  TRACE_EVENT_INSTANT2("loading", "FrameLayoutJank", TRACE_EVENT_SCOPE_THREAD,
+                       "data",
+                       PerFrameTraceData(jank_fraction, granularity_scale),
+                       "frame", ToTraceValue(&frame_view_->GetFrame()));
 
   region_ = Region();
+}
+
+void JankTracker::NotifyInput(const WebInputEvent& event) {
+  bool event_is_meaningful =
+      event.GetType() == WebInputEvent::kMouseDown ||
+      event.GetType() == WebInputEvent::kKeyDown ||
+      event.GetType() == WebInputEvent::kRawKeyDown ||
+      // We need to explicitly include tap, as if there are no listeners, we
+      // won't receive the pointer events.
+      event.GetType() == WebInputEvent::kGestureTap ||
+      // Ignore kPointerDown, since it might be a scroll.
+      event.GetType() == WebInputEvent::kPointerUp;
+
+  if (!event_is_meaningful)
+    return;
 
   // This cancels any previously scheduled task from the same timer.
   timer_.StartOneShot(kTimerDelay, FROM_HERE);
@@ -171,33 +199,29 @@ bool JankTracker::IsActive() {
   if (frame_view_->GetFrame().GetChromeClient().IsSVGImageChromeClient())
     return false;
 
-  if (has_fired_)
+  if (timer_.IsActive())
     return false;
+
   return true;
 }
 
-std::unique_ptr<TracedValue> JankTracker::TraceData() const {
+std::unique_ptr<TracedValue> JankTracker::PerFrameTraceData(
+    double jank_fraction,
+    double granularity_scale) const {
   std::unique_ptr<TracedValue> value = TracedValue::Create();
-  value->SetDouble("score", score_);
-  value->SetDouble("maxDistance", max_distance_);
+  value->SetDouble("jank_fraction", jank_fraction);
+  value->SetDouble("cumulative_score", score_);
+  value->SetDouble("max_distance", max_distance_);
+
+#ifdef TRACE_JANK_REGIONS
+  // Jank regions can be included in trace event by defining TRACE_JANK_REGIONS
+  // at the top of this file. This is useful for debugging and visualizing, but
+  // might impact performance negatively.
+  RegionToTracedValue(region_, granularity_scale, *value);
+#endif
+
+  value->SetBoolean("is_main_frame", frame_view_->GetFrame().IsMainFrame());
   return value;
-}
-
-void JankTracker::TimerFired(TimerBase* timer) {
-  has_fired_ = true;
-
-  // TODO(skobes): Aggregate jank scores from iframes.
-  if (!frame_view_->GetFrame().IsMainFrame())
-    return;
-
-  DVLOG(1) << "final jank score for "
-           << frame_view_->GetFrame().DomWindow()->location()->toString()
-           << " is " << score_ << " with max move distance of "
-           << max_distance_;
-
-  TRACE_EVENT_INSTANT2("loading", "TotalLayoutJank", TRACE_EVENT_SCOPE_THREAD,
-                       "data", TraceData(), "frame",
-                       ToTraceValue(&frame_view_->GetFrame()));
 }
 
 }  // namespace blink

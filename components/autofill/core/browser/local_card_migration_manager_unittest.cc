@@ -73,6 +73,7 @@ class LocalCardMigrationManagerTest : public testing::Test {
     credit_card_save_manager_ =
         new TestCreditCardSaveManager(autofill_driver_.get(), &autofill_client_,
                                       payments_client_, &personal_data_);
+    credit_card_save_manager_->SetCreditCardUploadEnabled(true);
     local_card_migration_manager_ = new TestLocalCardMigrationManager(
         autofill_driver_.get(), &autofill_client_, payments_client_,
         &personal_data_);
@@ -144,6 +145,15 @@ class LocalCardMigrationManagerTest : public testing::Test {
     personal_data.AddCreditCard(local_card);
   }
 
+  // Set the parsed response |result| for the provided |guid|.
+  void SetUpMigrationResponseForGuid(const std::string& guid,
+                                     const std::string& result) {
+    std::unique_ptr<std::unordered_map<std::string, std::string>> save_result =
+        std::make_unique<std::unordered_map<std::string, std::string>>();
+    save_result->insert(std::make_pair(guid, result));
+    payments_client_->SetSaveResultForCardsMigration(std::move(save_result));
+  }
+
  protected:
   base::test::ScopedTaskEnvironment scoped_task_environment_;
   ukm::TestAutoSetUkmRecorder test_ukm_recorder_;
@@ -165,9 +175,7 @@ class LocalCardMigrationManagerTest : public testing::Test {
 TEST_F(LocalCardMigrationManagerTest,
        MigrateCreditCard_UseLocalCardWithOneLocal) {
   EnableAutofillCreditCardLocalCardMigrationExperiment();
-  personal_data_.ClearCreditCards();
-  personal_data_.ClearProfiles();
-  credit_card_save_manager_->SetCreditCardUploadEnabled(true);
+
   // Set the billing_customer_number Priority Preference to designate
   // existence of a Payments account.
   autofill_client_.GetPrefs()->SetDouble(prefs::kAutofillBillingCustomerNumber,
@@ -194,9 +202,7 @@ TEST_F(LocalCardMigrationManagerTest,
 TEST_F(LocalCardMigrationManagerTest,
        MigrateCreditCard_UseNewCardWithAnyLocal) {
   EnableAutofillCreditCardLocalCardMigrationExperiment();
-  personal_data_.ClearCreditCards();
-  personal_data_.ClearProfiles();
-  credit_card_save_manager_->SetCreditCardUploadEnabled(true);
+
   // Set the billing_customer_number Priority Preference to designate
   // existence of a Payments account.
   autofill_client_.GetPrefs()->SetDouble(prefs::kAutofillBillingCustomerNumber,
@@ -226,9 +232,7 @@ TEST_F(LocalCardMigrationManagerTest,
 TEST_F(LocalCardMigrationManagerTest,
        MigrateCreditCard_UseLocalCardWithMoreLocal) {
   EnableAutofillCreditCardLocalCardMigrationExperiment();
-  personal_data_.ClearCreditCards();
-  personal_data_.ClearProfiles();
-  credit_card_save_manager_->SetCreditCardUploadEnabled(true);
+
   // Set the billing_customer_number Priority Preference to designate
   // existence of a Payments account.
   autofill_client_.GetPrefs()->SetDouble(prefs::kAutofillBillingCustomerNumber,
@@ -258,9 +262,7 @@ TEST_F(LocalCardMigrationManagerTest,
 TEST_F(LocalCardMigrationManagerTest,
        MigrateCreditCard_UseLocalCardWithInvalidLocal) {
   EnableAutofillCreditCardLocalCardMigrationExperiment();
-  personal_data_.ClearCreditCards();
-  personal_data_.ClearProfiles();
-  credit_card_save_manager_->SetCreditCardUploadEnabled(true);
+
   // Set the billing_customer_number Priority Preference to designate
   // existence of a Payments account.
   autofill_client_.GetPrefs()->SetDouble(prefs::kAutofillBillingCustomerNumber,
@@ -293,9 +295,7 @@ TEST_F(LocalCardMigrationManagerTest,
 TEST_F(LocalCardMigrationManagerTest,
        MigrateCreditCard_UseServerCardWithOneValidLocal) {
   EnableAutofillCreditCardLocalCardMigrationExperiment();
-  personal_data_.ClearCreditCards();
-  personal_data_.ClearProfiles();
-  credit_card_save_manager_->SetCreditCardUploadEnabled(true);
+
   // Set the billing_customer_number Priority Preference to designate
   // existence of a Payments account.
   autofill_client_.GetPrefs()->SetDouble(prefs::kAutofillBillingCustomerNumber,
@@ -328,9 +328,7 @@ TEST_F(LocalCardMigrationManagerTest,
 TEST_F(LocalCardMigrationManagerTest,
        MigrateCreditCard_UseServerCardWithNoneValidLocal) {
   EnableAutofillCreditCardLocalCardMigrationExperiment();
-  personal_data_.ClearCreditCards();
-  personal_data_.ClearProfiles();
-  credit_card_save_manager_->SetCreditCardUploadEnabled(true);
+
   // Set the billing_customer_number Priority Preference to designate
   // existence of a Payments account.
   autofill_client_.GetPrefs()->SetDouble(prefs::kAutofillBillingCustomerNumber,
@@ -366,9 +364,7 @@ TEST_F(LocalCardMigrationManagerTest,
 TEST_F(LocalCardMigrationManagerTest, MigrateCreditCard_FeatureNotEnabled) {
   // Turn off the experiment flag.
   DisableAutofillCreditCardLocalCardMigrationExperiment();
-  personal_data_.ClearCreditCards();
-  personal_data_.ClearProfiles();
-  credit_card_save_manager_->SetCreditCardUploadEnabled(true);
+
   // Set the billing_customer_number Priority Preference to designate
   // existence of a Payments account.
   autofill_client_.GetPrefs()->SetDouble(prefs::kAutofillBillingCustomerNumber,
@@ -397,9 +393,7 @@ TEST_F(LocalCardMigrationManagerTest, MigrateCreditCard_FeatureNotEnabled) {
 // number is blank, will not trigger migration.
 TEST_F(LocalCardMigrationManagerTest, MigrateCreditCard_NoPaymentsAccount) {
   EnableAutofillCreditCardLocalCardMigrationExperiment();
-  personal_data_.ClearCreditCards();
-  personal_data_.ClearProfiles();
-  credit_card_save_manager_->SetCreditCardUploadEnabled(true);
+
   // Add a local credit card whose |TypeAndLastFourDigits| matches what we will
   // enter below.
   AddLocalCrediCard(personal_data_, "Flo Master", "4111111111111111", "11",
@@ -425,9 +419,7 @@ TEST_F(LocalCardMigrationManagerTest, MigrateCreditCard_NoPaymentsAccount) {
 TEST_F(LocalCardMigrationManagerTest,
        MigrateCreditCard_LocalCardMatchMaskedServerCard) {
   EnableAutofillCreditCardLocalCardMigrationExperiment();
-  personal_data_.ClearCreditCards();
-  personal_data_.ClearProfiles();
-  credit_card_save_manager_->SetCreditCardUploadEnabled(true);
+
   // Set the billing_customer_number Priority Preference to designate
   // existence of a Payments account.
   autofill_client_.GetPrefs()->SetDouble(prefs::kAutofillBillingCustomerNumber,
@@ -464,9 +456,7 @@ TEST_F(LocalCardMigrationManagerTest,
 TEST_F(LocalCardMigrationManagerTest,
        MigrateCreditCard_LocalCardMatchFullServerCard) {
   EnableAutofillCreditCardLocalCardMigrationExperiment();
-  personal_data_.ClearCreditCards();
-  personal_data_.ClearProfiles();
-  credit_card_save_manager_->SetCreditCardUploadEnabled(true);
+
   // Set the billing_customer_number Priority Preference to designate
   // existence of a Payments account.
   autofill_client_.GetPrefs()->SetDouble(prefs::kAutofillBillingCustomerNumber,
@@ -498,9 +488,7 @@ TEST_F(LocalCardMigrationManagerTest,
 // GetDetectedValues() should includes cardholder name if all cards have it.
 TEST_F(LocalCardMigrationManagerTest, GetDetectedValues_AllWithCardHolderName) {
   EnableAutofillCreditCardLocalCardMigrationExperiment();
-  personal_data_.ClearCreditCards();
-  personal_data_.ClearProfiles();
-  credit_card_save_manager_->SetCreditCardUploadEnabled(true);
+
   // Set the billing_customer_number Priority Preference to designate
   // existence of a Payments account.
   autofill_client_.GetPrefs()->SetDouble(prefs::kAutofillBillingCustomerNumber,
@@ -532,9 +520,7 @@ TEST_F(LocalCardMigrationManagerTest, GetDetectedValues_AllWithCardHolderName) {
 TEST_F(LocalCardMigrationManagerTest,
        GetDetectedValues_OneCardWithoutCardHolderName) {
   EnableAutofillCreditCardLocalCardMigrationExperiment();
-  personal_data_.ClearCreditCards();
-  personal_data_.ClearProfiles();
-  credit_card_save_manager_->SetCreditCardUploadEnabled(true);
+
   // Set the billing_customer_number Priority Preference to designate
   // existence of a Payments account.
   autofill_client_.GetPrefs()->SetDouble(prefs::kAutofillBillingCustomerNumber,
@@ -565,9 +551,7 @@ TEST_F(LocalCardMigrationManagerTest,
 TEST_F(LocalCardMigrationManagerTest,
        GetDetectedValues_IncludeGooglePaymentsAccount) {
   EnableAutofillCreditCardLocalCardMigrationExperiment();
-  personal_data_.ClearCreditCards();
-  personal_data_.ClearProfiles();
-  credit_card_save_manager_->SetCreditCardUploadEnabled(true);
+
   // Set the billing_customer_number Priority Preference to designate
   // existence of a Payments account.
   autofill_client_.GetPrefs()->SetDouble(prefs::kAutofillBillingCustomerNumber,
@@ -600,9 +584,7 @@ TEST_F(LocalCardMigrationManagerTest,
 TEST_F(LocalCardMigrationManagerTest,
        MigrateCreditCard_TriggerFromSettingsPage) {
   EnableAutofillCreditCardLocalCardMigrationExperiment();
-  personal_data_.ClearCreditCards();
-  personal_data_.ClearProfiles();
-  credit_card_save_manager_->SetCreditCardUploadEnabled(true);
+
   // Set the billing_customer_number Priority Preference to designate
   // existence of a Payments account.
   autofill_client_.GetPrefs()->SetDouble(prefs::kAutofillBillingCustomerNumber,
@@ -625,9 +607,7 @@ TEST_F(LocalCardMigrationManagerTest,
 TEST_F(LocalCardMigrationManagerTest,
        MigrateCreditCard_TriggerFromSubmittedForm) {
   EnableAutofillCreditCardLocalCardMigrationExperiment();
-  personal_data_.ClearCreditCards();
-  personal_data_.ClearProfiles();
-  credit_card_save_manager_->SetCreditCardUploadEnabled(true);
+
   // Set the billing_customer_number Priority Preference to designate
   // existence of a Payments account.
   autofill_client_.GetPrefs()->SetDouble(prefs::kAutofillBillingCustomerNumber,
@@ -651,6 +631,114 @@ TEST_F(LocalCardMigrationManagerTest,
   FormSubmitted(credit_card_form);
   EXPECT_TRUE(local_card_migration_manager_->IntermediatePromptWasShown());
   EXPECT_TRUE(local_card_migration_manager_->MainPromptWasShown());
+}
+
+// Verify that given the parsed response from the payments client, the migration
+// status is correctly set.
+TEST_F(LocalCardMigrationManagerTest, MigrateCreditCard_MigrationSuccess) {
+  EnableAutofillCreditCardLocalCardMigrationExperiment();
+
+  // Set the billing_customer_number Priority Preference to designate
+  // existence of a Payments account.
+  autofill_client_.GetPrefs()->SetDouble(prefs::kAutofillBillingCustomerNumber,
+                                         12345);
+  // Add a local credit card for migration.
+  AddLocalCrediCard(personal_data_, "Flo Master", "4111111111111111", "11",
+                    test::NextYear().c_str(), "1");
+
+  // Get the migratable credit cards.
+  local_card_migration_manager_->GetMigratableCreditCards();
+
+  // Set the parsed response to success.
+  SetUpMigrationResponseForGuid(
+      local_card_migration_manager_->migratable_credit_cards_[0]
+          .credit_card()
+          .guid(),
+      autofill::kMigrationResultSuccess);
+
+  EXPECT_EQ(local_card_migration_manager_->migratable_credit_cards_[0]
+                .migration_status(),
+            autofill::MigratableCreditCard::UNKNOWN);
+
+  local_card_migration_manager_->AttemptToOfferLocalCardMigration(true);
+
+  EXPECT_EQ(local_card_migration_manager_->migratable_credit_cards_[0]
+                .migration_status(),
+            autofill::MigratableCreditCard::SUCCESS_ON_UPLOAD);
+}
+
+// Verify that given the parsed response from the payments client, the migration
+// status is correctly set.
+TEST_F(LocalCardMigrationManagerTest,
+       MigrateCreditCard_MigrationTemporaryFailure) {
+  EnableAutofillCreditCardLocalCardMigrationExperiment();
+
+  // Set the billing_customer_number Priority Preference to designate
+  // existence of a Payments account.
+  autofill_client_.GetPrefs()->SetDouble(prefs::kAutofillBillingCustomerNumber,
+                                         12345);
+  // Add a local credit card. One migratable credit card will still trigger
+  // migration on settings page.
+  AddLocalCrediCard(personal_data_, "Flo Master", "4111111111111111", "11",
+                    test::NextYear().c_str(), "1");
+
+  // Get the migratable credit cards.
+  local_card_migration_manager_->GetMigratableCreditCards();
+
+  // Set the parsed response to temporary failure.
+  SetUpMigrationResponseForGuid(
+      local_card_migration_manager_->migratable_credit_cards_[0]
+          .credit_card()
+          .guid(),
+      autofill::kMigrationResultTemporaryFailure);
+
+  EXPECT_EQ(local_card_migration_manager_->migratable_credit_cards_[0]
+                .migration_status(),
+            autofill::MigratableCreditCard::UNKNOWN);
+
+  // Start the migration.
+  local_card_migration_manager_->AttemptToOfferLocalCardMigration(true);
+
+  EXPECT_EQ(local_card_migration_manager_->migratable_credit_cards_[0]
+                .migration_status(),
+            autofill::MigratableCreditCard::FAILURE_ON_UPLOAD);
+}
+
+// Verify that given the parsed response from the payments client, the migration
+// status is correctly set.
+TEST_F(LocalCardMigrationManagerTest,
+       MigrateCreditCard_MigrationPermanentFailure) {
+  EnableAutofillCreditCardLocalCardMigrationExperiment();
+
+  // Set the billing_customer_number Priority Preference to designate
+  // existence of a Payments account.
+  autofill_client_.GetPrefs()->SetDouble(prefs::kAutofillBillingCustomerNumber,
+                                         12345);
+  // Add a local credit card. One migratable credit card will still trigger
+  // migration on settings page.
+  AddLocalCrediCard(personal_data_, "Flo Master", "4111111111111111", "11",
+                    test::NextYear().c_str(), "1");
+
+  // Get the migratable credit cards.
+  local_card_migration_manager_->GetMigratableCreditCards();
+
+  // Set the parsed response to permanent failure.
+  SetUpMigrationResponseForGuid(
+      local_card_migration_manager_->migratable_credit_cards_[0]
+          .credit_card()
+          .guid(),
+      autofill::kMigrationResultPermanentFailure);
+
+  EXPECT_EQ(local_card_migration_manager_->migratable_credit_cards_[0]
+                .migration_status(),
+            autofill::MigratableCreditCard::UNKNOWN);
+
+  // Start the migration.
+  local_card_migration_manager_->AttemptToOfferLocalCardMigration(true);
+
+  EXPECT_EQ(local_card_migration_manager_->migratable_credit_cards_[0]
+                .migration_status(),
+            autofill::MigratableCreditCard::FAILURE_ON_UPLOAD);
 }
 
 }  // namespace autofill

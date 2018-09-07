@@ -13,7 +13,7 @@
 namespace content {
 
 WebGraphicsContext3DProviderImpl::WebGraphicsContext3DProviderImpl(
-    scoped_refptr<ui::ContextProviderCommandBuffer> provider)
+    scoped_refptr<ws::ContextProviderCommandBuffer> provider)
     : provider_(std::move(provider)) {}
 
 WebGraphicsContext3DProviderImpl::~WebGraphicsContext3DProviderImpl() {
@@ -31,6 +31,11 @@ bool WebGraphicsContext3DProviderImpl::BindToCurrentThread() {
 
 gpu::gles2::GLES2Interface* WebGraphicsContext3DProviderImpl::ContextGL() {
   return provider_->ContextGL();
+}
+
+gpu::webgpu::WebGPUInterface*
+WebGraphicsContext3DProviderImpl::WebGPUInterface() {
+  return provider_->WebGPUInterface();
 }
 
 GrContext* WebGraphicsContext3DProviderImpl::GetGrContext() {

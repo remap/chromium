@@ -238,7 +238,7 @@ AutocompleteMatch BaseSearchProvider::CreateSearchSuggestion(
     const TemplateURL* template_url,
     const SearchTermsData& search_terms_data,
     int accepted_suggestion,
-    bool append_extra_query_params) {
+    bool append_extra_query_params_from_command_line) {
   AutocompleteMatch match(autocomplete_provider, suggestion.relevance(), false,
                           suggestion.type());
 
@@ -251,7 +251,7 @@ AutocompleteMatch BaseSearchProvider::CreateSearchSuggestion(
   match.contents_class = suggestion.match_contents_class();
   match.answer_contents = suggestion.answer_contents();
   match.answer_type = suggestion.answer_type();
-  match.answer = SuggestionAnswer::copy(suggestion.answer());
+  match.answer = suggestion.answer();
   match.subtype_identifier = suggestion.subtype_identifier();
   if (suggestion.type() == AutocompleteMatchType::SEARCH_SUGGEST_TAIL) {
     match.RecordAdditionalInfo(kACMatchPropertySuggestionText,
@@ -300,10 +300,10 @@ AutocompleteMatch BaseSearchProvider::CreateSearchSuggestion(
       new TemplateURLRef::SearchTermsArgs(suggestion.suggestion()));
   match.search_terms_args->original_query = input.text();
   match.search_terms_args->accepted_suggestion = accepted_suggestion;
-  match.search_terms_args->suggest_query_params =
-      suggestion.suggest_query_params();
-  match.search_terms_args->append_extra_query_params =
-      append_extra_query_params;
+  match.search_terms_args->additional_query_params =
+      suggestion.additional_query_params();
+  match.search_terms_args->append_extra_query_params_from_command_line =
+      append_extra_query_params_from_command_line;
   // This is the destination URL sans assisted query stats.  This must be set
   // so the AutocompleteController can properly de-dupe; the controller will
   // eventually overwrite it before it reaches the user.
@@ -416,7 +416,7 @@ void BaseSearchProvider::AddMatchToMap(
   // NOTE: Keep this ToLower() call in sync with url_database.cc.
   MatchKey match_key(
       std::make_pair(base::i18n::ToLower(result.suggestion()),
-                     match.search_terms_args->suggest_query_params));
+                     match.search_terms_args->additional_query_params));
   const std::pair<MatchMap::iterator, bool> i(
        map->insert(std::make_pair(match_key, match)));
 
@@ -468,8 +468,7 @@ void BaseSearchProvider::AddMatchToMap(
     if (less_relevant_match.answer && !more_relevant_match.answer) {
       more_relevant_match.answer_type = less_relevant_match.answer_type;
       more_relevant_match.answer_contents = less_relevant_match.answer_contents;
-      more_relevant_match.answer =
-          SuggestionAnswer::copy(less_relevant_match.answer.get());
+      more_relevant_match.answer = less_relevant_match.answer;
     }
   }
 }

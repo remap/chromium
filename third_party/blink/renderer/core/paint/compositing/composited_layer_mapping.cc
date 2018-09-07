@@ -360,6 +360,8 @@ void CompositedLayerMapping::UpdateStickyConstraints(
   constraint.right_offset = constraints.right_offset;
   constraint.top_offset = constraints.top_offset;
   constraint.bottom_offset = constraints.bottom_offset;
+  constraint.constraint_box_rect =
+      GetLayoutObject().ComputeStickyConstrainingRect();
   constraint.scroll_container_relative_sticky_box_rect =
       RoundedIntRect(constraints.scroll_container_relative_sticky_box_rect);
   constraint.scroll_container_relative_containing_block_rect = RoundedIntRect(
@@ -1269,6 +1271,10 @@ void CompositedLayerMapping::UpdateGraphicsLayerGeometry(
 }
 
 void CompositedLayerMapping::UpdateOverscrollBehavior() {
+  // OverscrollBehavior directly set to scroll node when BGPT enabled.
+  if (RuntimeEnabledFeatures::BlinkGenPropertyTreesEnabled())
+    return;
+
   EOverscrollBehavior behavior_x =
       GetLayoutObject().StyleRef().OverscrollBehaviorX();
   EOverscrollBehavior behavior_y =
@@ -1282,6 +1288,10 @@ void CompositedLayerMapping::UpdateOverscrollBehavior() {
 }
 
 void CompositedLayerMapping::UpdateSnapContainerData() {
+  // SnapContainerData directly set to scroll node when BGPT enabled.
+  if (RuntimeEnabledFeatures::BlinkGenPropertyTreesEnabled())
+    return;
+
   if (!GetLayoutObject().IsBox() || !scrolling_contents_layer_)
     return;
 

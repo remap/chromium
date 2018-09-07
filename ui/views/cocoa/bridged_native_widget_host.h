@@ -5,11 +5,14 @@
 #ifndef UI_VIEWS_COCOA_BRIDGED_NATIVE_WIDGET_HOST_H_
 #define UI_VIEWS_COCOA_BRIDGED_NATIVE_WIDGET_HOST_H_
 
+#include "ui/base/ui_base_types.h"
 #include "ui/events/event_utils.h"
 #include "ui/gfx/decorated_text.h"
 #include "ui/gfx/geometry/point.h"
 #include "ui/gfx/geometry/size.h"
 #include "ui/views/views_export.h"
+
+@class NSView;
 
 namespace views {
 
@@ -18,6 +21,12 @@ namespace views {
 class VIEWS_EXPORT BridgedNativeWidgetHost {
  public:
   virtual ~BridgedNativeWidgetHost() = default;
+
+  // Retrieve the NSView for accessibility for this widget.
+  // TODO(ccameron): This interface cannot be implemented over IPC. A scheme
+  // for implementing accessibility across processes needs to be designed and
+  // implemented.
+  virtual NSView* GetNativeViewAccessible() = 0;
 
   // Update the views::Widget, ui::Compositor and ui::Layer's visibility.
   virtual void OnVisibilityChanged(bool visible) = 0;
@@ -42,6 +51,24 @@ class VIEWS_EXPORT BridgedNativeWidgetHost {
   virtual void OnMouseEvent(const ui::MouseEvent& const_event) = 0;
   virtual void OnGestureEvent(const ui::GestureEvent& const_event) = 0;
 
+  // Synchronously dispatch a key event and return in |event_handled| whether
+  // or not the event was handled.
+  virtual void DispatchKeyEvent(const ui::KeyEvent& const_event,
+                                bool* event_handled) = 0;
+
+  // Synchronously dispatch a key event to the current menu controller (if any)
+  // exists. Return in |event_swallowed| whether or not the event was swallowed
+  // (that is, if the menu's dispatch returned POST_DISPATCH_NONE). Return in
+  // in |event_handled| whether or not the event was handled (that is, if the
+  // event in the caller's frame should be marked as handled).
+  virtual void DispatchKeyEventToMenuController(const ui::KeyEvent& const_event,
+                                                bool* event_swallowed,
+                                                bool* event_handled) = 0;
+
+  // Synchronously return in  |has_menu_controller| whether or not a menu
+  // controller exists for this widget.
+  virtual void GetHasMenuController(bool* has_menu_controller) = 0;
+
   // Synchronously query if |location_in_content| is a draggable background.
   virtual void GetIsDraggableBackgroundAt(const gfx::Point& location_in_content,
                                           bool* is_draggable_background) = 0;
@@ -60,6 +87,10 @@ class VIEWS_EXPORT BridgedNativeWidgetHost {
   // Synchronously query the value of IsModal for this widget and store it in
   // |*widget_is_modal|.
   virtual void GetWidgetIsModal(bool* widget_is_modal) = 0;
+
+  // Synchronously return in |is_textual| whether or not the focused view
+  // contains text that can be selected and copied.
+  virtual void GetIsFocusedViewTextual(bool* is_textual) = 0;
 
   // Called whenever the NSWindow's size or position changes.
   virtual void OnWindowGeometryChanged(
@@ -97,6 +128,23 @@ class VIEWS_EXPORT BridgedNativeWidgetHost {
   virtual void OnWindowKeyStatusChanged(bool is_key,
                                         bool is_content_first_responder,
                                         bool full_keyboard_access_enabled) = 0;
+
+  // Accept or cancel the current dialog window (depending on the value of
+  // |button|), if a current dialog exists.
+  virtual void DoDialogButtonAction(ui::DialogButton button) = 0;
+
+  // Synchronously determine if the specified button exists in the current
+  // dialog (if any), along with its label, whether or not it is enabled, and
+  // whether or not it is the default button..
+  virtual void GetDialogButtonInfo(ui::DialogButton button,
+                                   bool* button_exists,
+                                   base::string16* title,
+                                   bool* is_button_enabled,
+                                   bool* is_button_default) = 0;
+
+  // Synchronously return in |buttons_exist| whether or not any buttons exist
+  // for the current dialog.
+  virtual void GetDoDialogButtonsExist(bool* buttons_exist) = 0;
 };
 
 }  // namespace views

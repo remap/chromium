@@ -213,12 +213,15 @@ public abstract class ChromeFeatureList {
     public static final String DOWNLOADS_LOCATION_CHANGE = "DownloadsLocationChange";
     public static final String EXPERIMENTAL_APP_BANNERS = "ExperimentalAppBanners";
     public static final String EXPERIMENTAL_UI = "ExperimentalUi";
+    public static final String EXPLICIT_LANGUAGE_ASK = "ExplicitLanguageAsk";
     public static final String EXPLORE_SITES = "ExploreSites";
     // When enabled, fullscreen WebContents will be moved to a new Activity. Coming soon...
     public static final String FULLSCREEN_ACTIVITY = "FullscreenActivity";
     public static final String GRANT_NOTIFICATIONS_TO_DSE = "GrantNotificationsToDSE";
     public static final String GENERIC_SENSOR_EXTRA_CLASSES = "GenericSensorExtraClasses";
     public static final String HANDLE_MEDIA_INTENTS = "HandleMediaIntents";
+    public static final String HIDE_USER_DATA_FROM_INCOGNITO_NOTIFICATIONS =
+            "HideUserDataFromIncognitoNotifications";
     public static final String HOME_PAGE_BUTTON_FORCE_ENABLED = "HomePageButtonForceEnabled";
     public static final String HOMEPAGE_TILE = "HomepageTile";
     public static final String HORIZONTAL_TAB_SWITCHER_ANDROID = "HorizontalTabSwitcherAndroid";

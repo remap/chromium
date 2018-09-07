@@ -21,6 +21,8 @@
 #include "chrome/common/chrome_switches.h"
 #include "content/public/browser/browser_thread.h"
 
+namespace webrtc_event_logging {
+
 // TODO(crbug.com/775415): Change max back to (1u << 29) after resolving the
 // issue where we read the entire file into memory.
 const size_t kMaxRemoteLogFileSizeBytes = 50000000u;
@@ -111,8 +113,12 @@ static_assert(kMaxActiveRemoteBoundWebRtcEventLogs <=
 const base::TimeDelta kRemoteBoundWebRtcEventLogsMaxRetention =
     base::TimeDelta::FromDays(7);
 
+// The "01" prefix is for future-proofing. If more than one web-app is allowed
+// to log, but all upload the logs to Crash, this will allow us to distinguish
+// logs from different web-apps.
+// TODO(crbug.com/775415): Support additional web-apps.
 const base::FilePath::CharType kRemoteBoundWebRtcEventLogFileNamePrefix[] =
-    FILE_PATH_LITERAL("webrtc_event_log_");
+    FILE_PATH_LITERAL("webrtc_event_log_01_");
 
 WebRtcRemoteEventLogManager::WebRtcRemoteEventLogManager(
     WebRtcRemoteEventLogsObserver* observer,
@@ -901,3 +907,5 @@ WebRtcRemoteEventLogManager::FindNextPeerConnection(
   }
   return end;
 }
+
+}  // namespace webrtc_event_logging

@@ -219,8 +219,7 @@ device::CtapGetAssertionRequest CreateCtapGetAssertionRequest(
 
   if (!options->cable_authentication_data.empty()) {
     request_parameter.SetCableExtension(
-        mojo::ConvertTo<
-            std::vector<device::FidoCableDiscovery::CableDiscoveryData>>(
+        mojo::ConvertTo<std::vector<device::CableDiscoveryData>>(
             options->cable_authentication_data));
   }
   return request_parameter;
@@ -311,6 +310,26 @@ std::string Base64UrlEncode(const base::span<const uint8_t> input) {
   return ret;
 }
 
+base::flat_set<device::FidoTransportProtocol> GetTransportsEnabledByFlags() {
+  base::flat_set<device::FidoTransportProtocol> transports;
+  transports.insert(device::FidoTransportProtocol::kUsbHumanInterfaceDevice);
+  transports.insert(device::FidoTransportProtocol::kInternal);
+  if (base::FeatureList::IsEnabled(features::kWebAuthBle)) {
+    transports.insert(device::FidoTransportProtocol::kBluetoothLowEnergy);
+  }
+
+#if defined(OS_WIN)
+  if (base::FeatureList::IsEnabled(features::kWebAuthCable) &&
+      base::FeatureList::IsEnabled(features::kWebAuthCableWin)) {
+#else
+  if (base::FeatureList::IsEnabled(features::kWebAuthCable)) {
+#endif  // defined(OS_WIN)
+    transports.insert(
+        device::FidoTransportProtocol::kCloudAssistedBluetoothLowEnergy);
+  }
+  return transports;
+}
+
 }  // namespace
 
 AuthenticatorImpl::AuthenticatorImpl(RenderFrameHost* render_frame_host)
@@ -324,27 +343,12 @@ AuthenticatorImpl::AuthenticatorImpl(RenderFrameHost* render_frame_host,
     : WebContentsObserver(WebContents::FromRenderFrameHost(render_frame_host)),
       render_frame_host_(render_frame_host),
       connector_(connector),
+      transports_(GetTransportsEnabledByFlags()),
       timer_(std::move(timer)),
       binding_(this),
       weak_factory_(this) {
   DCHECK(render_frame_host_);
   DCHECK(timer_);
-
-  protocols_.insert(device::FidoTransportProtocol::kUsbHumanInterfaceDevice);
-  protocols_.insert(device::FidoTransportProtocol::kInternal);
-  if (base::FeatureList::IsEnabled(features::kWebAuthBle)) {
-    protocols_.insert(device::FidoTransportProtocol::kBluetoothLowEnergy);
-  }
-
-#if defined(OS_WIN)
-  if (base::FeatureList::IsEnabled(features::kWebAuthCable) &&
-      base::FeatureList::IsEnabled(features::kWebAuthCableWin)) {
-#else
-  if (base::FeatureList::IsEnabled(features::kWebAuthCable)) {
-#endif  // defined(OS_WIN)
-    protocols_.insert(
-        device::FidoTransportProtocol::kCloudAssistedBluetoothLowEnergy);
-  }
 }
 
 AuthenticatorImpl::~AuthenticatorImpl() {
@@ -369,11 +373,6 @@ void AuthenticatorImpl::UpdateRequestDelegate() {
   request_delegate_ =
       GetContentClient()->browser()->GetWebAuthenticationRequestDelegate(
           render_frame_host_);
-}
-
-void AuthenticatorImpl::AddTransportProtocolForTesting(
-    device::FidoTransportProtocol protocol) {
-  protocols_.insert(protocol);
 }
 
 bool AuthenticatorImpl::IsFocused() const {
@@ -477,11 +476,6 @@ void AuthenticatorImpl::MakeCredential(
 
   attestation_preference_ = options->attestation;
 
-  // Communication using Cable protocol is only supported for GetAssertion
-  // request on CTAP2 devices.
-  protocols_.erase(
-      device::FidoTransportProtocol::kCloudAssistedBluetoothLowEnergy);
-
   auto authenticator_selection_criteria =
       options->authenticator_selection
           ? mojo::ConvertTo<device::AuthenticatorSelectionCriteria>(
@@ -489,7 +483,7 @@ void AuthenticatorImpl::MakeCredential(
           : device::AuthenticatorSelectionCriteria();
 
   request_ = std::make_unique<device::MakeCredentialRequestHandler>(
-      connector_, protocols_,
+      connector_, transports_,
       CreateCtapMakeCredentialRequest(
           ConstructClientDataHash(client_data_json_), options,
           individual_attestation),
@@ -502,7 +496,10 @@ void AuthenticatorImpl::MakeCredential(
                      weak_factory_.GetWeakPtr()) /* cancel_callback */,
       base::BindRepeating(
           &device::FidoRequestHandlerBase::StartAuthenticatorRequest,
-          request_->GetWeakPtr()) /* request_callback */);
+          request_->GetWeakPtr()) /* request_callback */,
+      base::BindRepeating(
+          &device::FidoRequestHandlerBase::PowerOnBluetoothAdapter,
+          request_->GetWeakPtr()) /* bluetooth_adapter_power_on_callback */);
   request_->set_observer(request_delegate_.get());
 
   request_->SetPlatformAuthenticatorOrMarkUnavailable(
@@ -576,11 +573,12 @@ void AuthenticatorImpl::GetAssertion(
   auto ctap_request = CreateCtapGetAssertionRequest(
       ConstructClientDataHash(client_data_json_), std::move(options),
       alternative_application_parameter_);
+
   auto opt_platform_authenticator_info =
       CreatePlatformAuthenticatorIfAvailableAndCheckIfCredentialExists(
           ctap_request);
   request_ = std::make_unique<device::GetAssertionRequestHandler>(
-      connector_, protocols_, std::move(ctap_request),
+      connector_, transports_, std::move(ctap_request),
       base::BindOnce(&AuthenticatorImpl::OnSignResponse,
                      weak_factory_.GetWeakPtr()));
 
@@ -589,7 +587,10 @@ void AuthenticatorImpl::GetAssertion(
                      weak_factory_.GetWeakPtr()) /* cancel_callback */,
       base::BindRepeating(
           &device::FidoRequestHandlerBase::StartAuthenticatorRequest,
-          request_->GetWeakPtr()) /* request_callback */);
+          request_->GetWeakPtr()) /* request_callback */,
+      base::BindRepeating(
+          &device::FidoRequestHandlerBase::PowerOnBluetoothAdapter,
+          request_->GetWeakPtr()) /* bluetooth_adapter_power_on_callback */);
   request_->set_observer(request_delegate_.get());
 
   request_->SetPlatformAuthenticatorOrMarkUnavailable(
@@ -655,6 +656,10 @@ void AuthenticatorImpl::OnRegisterResponse(
       // Duplicate registration: the new credential would be created on an
       // authenticator that already contains one of the credentials in
       // |exclude_credentials|.
+      DCHECK(request_delegate_);
+      request_delegate_->DidFailWithInterestingReason(
+          AuthenticatorRequestClientDelegate::InterestingFailureReason::
+              kKeyAlreadyRegistered);
       InvokeCallbackAndCleanup(
           std::move(make_credential_response_callback_),
           blink::mojom::AuthenticatorStatus::CREDENTIAL_EXCLUDED, nullptr,
@@ -768,6 +773,10 @@ void AuthenticatorImpl::OnSignResponse(
   switch (status_code) {
     case device::FidoReturnCode::kUserConsentButCredentialNotRecognized:
       // No authenticators contained the credential.
+      DCHECK(request_delegate_);
+      request_delegate_->DidFailWithInterestingReason(
+          AuthenticatorRequestClientDelegate::InterestingFailureReason::
+              kKeyNotRegistered);
       InvokeCallbackAndCleanup(
           std::move(get_assertion_response_callback_),
           blink::mojom::AuthenticatorStatus::CREDENTIAL_NOT_RECOGNIZED,
@@ -808,9 +817,7 @@ void AuthenticatorImpl::OnSignResponse(
   NOTREACHED();
 }
 
-void AuthenticatorImpl::OnTimeout() {
-  // TODO(crbug.com/814418): Add layout tests to verify timeouts are
-  // indistinguishable from NOT_ALLOWED_ERROR cases.
+void AuthenticatorImpl::FailWithNotAllowedErrorAndCleanup() {
   DCHECK(make_credential_response_callback_ ||
          get_assertion_response_callback_);
   if (make_credential_response_callback_) {
@@ -825,14 +832,22 @@ void AuthenticatorImpl::OnTimeout() {
   }
 }
 
+void AuthenticatorImpl::OnTimeout() {
+  DCHECK(request_delegate_);
+  request_delegate_->DidFailWithInterestingReason(
+      AuthenticatorRequestClientDelegate::InterestingFailureReason::kTimeout);
+
+  // TODO(crbug.com/814418): Add layout tests to verify timeouts are
+  // indistinguishable from NOT_ALLOWED_ERROR cases.
+  FailWithNotAllowedErrorAndCleanup();
+}
+
 void AuthenticatorImpl::Cancel() {
   // If response callback is invoked already, then ignore cancel request.
   if (!make_credential_response_callback_ && !get_assertion_response_callback_)
     return;
 
-  // Response from user cancellation is indistinguishable from error due to
-  // timeout.
-  OnTimeout();
+  FailWithNotAllowedErrorAndCleanup();
 }
 
 void AuthenticatorImpl::InvokeCallbackAndCleanup(

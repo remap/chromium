@@ -1005,7 +1005,7 @@
             ],
             "experiments": [
                 {
-                    "name": "Enabled",
+                    "name": "Enabled_2",
                     "enable_features": [
                         "CCTModule"
                     ]
@@ -1371,6 +1371,7 @@
         {
             "platforms": [
                 "android",
+                "android_webview",
                 "chromeos",
                 "mac"
             ],
@@ -1822,6 +1823,29 @@
                     "name": "LowPriorityForBackgroundPageEnabled_V2",
                     "enable_features": [
                         "BlinkSchedulerLowPriorityForBackgroundPages"
+                    ]
+                }
+            ]
+        }
+    ],
+    "GamepadPollingInterval": [
+        {
+            "platforms": [
+                "windows",
+                "mac",
+                "chromeos",
+                "linux",
+                "android",
+                "android_webview"
+            ],
+            "experiments": [
+                {
+                    "name": "EnabledGamepadPolling250Hz",
+                    "params": {
+                        "interval-ms": "4"
+                    },
+                    "enable_features": [
+                        "GamepadPollingInterval"
                     ]
                 }
             ]
@@ -3641,7 +3665,7 @@
             ],
             "experiments": [
                 {
-                    "name": "Enabled_bg_limit_3_2",
+                    "name": "Enabled_v3_bg_limit_3_2",
                     "params": {
                         "bg_limit": "3",
                         "bg_sub_limit": "2"
@@ -4256,6 +4280,21 @@
             ]
         }
     ],
+    "ThirdPartyModulesBlocking": [
+        {
+            "platforms": [
+                "windows"
+            ],
+            "experiments": [
+                {
+                    "name": "Enabled",
+                    "enable_features": [
+                        "ThirdPartyModulesBlocking"
+                    ]
+                }
+            ]
+        }
+    ],
     "ThrottleDelayable": [
         {
             "platforms": [
@@ -4767,6 +4806,21 @@
             ]
         }
     ],
+    "VideoCaptureServiceChromeOS": [
+        {
+            "platforms": [
+                "chromeos"
+            ],
+            "experiments": [
+                {
+                    "name": "Enabled",
+                    "enable_features": [
+                        "MojoVideoCapture"
+                    ]
+                }
+            ]
+        }
+    ],
     "VideoSurfaceLayer": [
         {
             "platforms": [
@@ -4806,7 +4860,8 @@
             "platforms": [
                 "windows",
                 "linux",
-                "mac"
+                "mac",
+                "android"
             ],
             "experiments": [
                 {
@@ -4911,25 +4966,6 @@
                     "params": {
                         "blocklist_additions": "00060000:e,fffd:e,ed5f25a4:e"
                     }
-                }
-            ]
-        }
-    ],
-    "WebPaymentsJustInTimePaymentApp": [
-        {
-            "platforms": [
-                "android",
-                "chromeos",
-                "linux",
-                "mac",
-                "windows"
-            ],
-            "experiments": [
-                {
-                    "name": "Enabled",
-                    "enable_features": [
-                        "WebPaymentsJustInTimePaymentApp"
-                    ]
                 }
             ]
         }

@@ -10551,6 +10551,21 @@ should be able to be added at any place in this file.
   <description>Please enter the description of this user action.</description>
 </action>
 
+<action name="MobileClearBrowsingDataTriggeredFromLegacyUI">
+  <owner>sczs@chromium.org</owner>
+  <description>
+    Clear browsing data button was tapped on the legacy Clear browsing data UI.
+  </description>
+</action>
+
+<action name="MobileClearBrowsingDataTriggeredFromUIRefresh">
+  <owner>sczs@chromium.org</owner>
+  <description>
+    Clear browsing data button was tapped on the UI Refresh Clear browsing data
+    UI.
+  </description>
+</action>
+
 <action name="MobileClipboardChanged">
   <owner>jif@chromium.org</owner>
   <owner>mpearson@chromium.org</owner>
@@ -11439,11 +11454,25 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="MobileReadingListDeleteEntry">
+  <owner>gambard@chromium.org</owner>
+  <description>
+    User deleted a single entry from the ReadingList using swipe to delete.
+  </description>
+</action>
+
 <action name="MobileReadingListDeleteRead">
   <owner>gambard@chromium.org</owner>
   <description>
     User deleted all the read entries of the ReadingList using 'Delete All
     Read'.
+  </description>
+</action>
+
+<action name="MobileReadingListDeleteSelected">
+  <owner>gambard@chromium.org</owner>
+  <description>
+    User deleted the selected entries from the ReadingList.
   </description>
 </action>
 
@@ -18958,6 +18987,13 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="Tab.Screenshot">
+  <owner>petewil@chromium.org</owner>
+  <description>
+    Recorded when the user takes a screenshot of a chrome tab.
+  </description>
+</action>
+
 <action name="Tab_DropURLBetweenTabs">
   <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
   <description>Please enter the description of this user action.</description>
@@ -20229,6 +20265,7 @@ should be able to be added at any place in this file.
   <suffix name="DownloadPageScreenshot"
       label="For DownloadPageScreenshot feature."/>
   <suffix name="HomePageButton" label="For HomePageButton feature."/>
+  <suffix name="HomepageTile" label="For HomepageTile feature."/>
   <suffix name="IncognitoWindow" label="For IncognitoWindow feature."/>
   <suffix name="LongPressToolbarTip" label="For LongPressToolbar feature."/>
   <suffix name="MediaDownload" label="For MediaDownload feature."/>

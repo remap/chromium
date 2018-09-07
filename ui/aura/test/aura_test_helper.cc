@@ -90,8 +90,10 @@ void AuraTestHelper::DeleteWindowTreeClient() {
 
 void AuraTestHelper::SetUp(ui::ContextFactory* context_factory,
                            ui::ContextFactoryPrivate* context_factory_private) {
+  service_manager::Connector* connector =
+      window_tree_client_ ? window_tree_client_->connector() : nullptr;
   ui::test::EventGeneratorDelegate::SetFactoryFunction(
-      base::BindRepeating(&EventGeneratorDelegateAura::Create));
+      base::BindRepeating(&EventGeneratorDelegateAura::Create, connector));
   // If Env has been configured with MUS, but |mode_| is still |LOCAL|, switch
   // to MUS. This is used for tests suites that setup Env globally.
   if (Env::HasInstance() && Env::GetInstance()->mode() == Env::Mode::MUS &&
@@ -156,8 +158,7 @@ void AuraTestHelper::SetUp(ui::ContextFactory* context_factory,
   if (!screen)
     display::Screen::SetScreenInstance(test_screen_.get());
   host_.reset(test_screen_->CreateHostForPrimaryDisplay());
-  host_->window()->SetEventTargeter(
-      std::unique_ptr<ui::EventTargeter>(new WindowTargeter()));
+  host_->window()->SetEventTargeter(std::make_unique<WindowTargeter>());
 
   client::SetFocusClient(root_window(), focus_client_.get());
   client::SetCaptureClient(root_window(), capture_client());

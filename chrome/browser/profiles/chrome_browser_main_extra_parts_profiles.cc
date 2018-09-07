@@ -170,6 +170,11 @@
 #include "chrome/browser/supervised_user/supervised_user_service_factory.h"
 #endif
 
+#if defined(FULL_SAFE_BROWSING)
+#include "chrome/browser/safe_browsing/advanced_protection_status_manager.h"
+#include "chrome/browser/safe_browsing/advanced_protection_status_manager_factory.h"
+#endif
+
 namespace chrome {
 
 void AddProfilesExtraParts(ChromeBrowserMainParts* main_parts) {
@@ -352,6 +357,10 @@ void ChromeBrowserMainExtraPartsProfiles::
 #if !defined(OS_ANDROID)
   resource_coordinator::LocalSiteCharacteristicsDataStoreFactory::GetInstance();
 #endif
+#if defined(FULL_SAFE_BROWSING)
+  if (safe_browsing::AdvancedProtectionStatusManager::IsEnabled())
+    safe_browsing::AdvancedProtectionStatusManagerFactory::GetInstance();
+#endif
 #if defined(OS_ANDROID)
   SearchPermissionsService::Factory::GetInstance();
 #endif
@@ -386,7 +395,7 @@ void ChromeBrowserMainExtraPartsProfiles::
   web_app::WebAppProviderFactory::GetInstance();
 #endif
   WebDataServiceFactory::GetInstance();
-  WebRtcEventLogManagerKeyedServiceFactory::GetInstance();
+  webrtc_event_logging::WebRtcEventLogManagerKeyedServiceFactory::GetInstance();
 }
 
 void ChromeBrowserMainExtraPartsProfiles::PreProfileInit() {

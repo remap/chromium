@@ -8,6 +8,9 @@
 
 #include "base/memory/ptr_util.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/time/time.h"
+#include "base/timer/timer.h"
+#include "build/build_config.h"
 #include "chrome/app/vector_icons/vector_icons.h"
 #include "chrome/browser/ui/views/overlay/close_image_button.h"
 #include "chrome/browser/ui/views/overlay/control_image_button.h"
@@ -136,10 +139,16 @@ OverlayWindowViews::OverlayWindowViews(
     : controller_(controller),
       window_background_view_(new views::View()),
       video_view_(new views::View()),
-      controls_background_view_(new views::View()),
+      controls_scrim_view_(new views::View()),
       controls_parent_view_(new views::View()),
       close_controls_view_(new views::CloseImageButton(this)),
-      play_pause_controls_view_(new views::ToggleImageButton(this)) {
+      play_pause_controls_view_(new views::ToggleImageButton(this)),
+      hide_controls_timer_(
+          FROM_HERE,
+          base::TimeDelta::FromMilliseconds(2500 /* 2.5 seconds */),
+          base::BindRepeating(&OverlayWindowViews::UpdateControlsVisibility,
+                              base::Unretained(this),
+                              false /* is_visible */)) {
   views::Widget::InitParams params(views::Widget::InitParams::TYPE_WINDOW);
   params.ownership = views::Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET;
   params.bounds = CalculateAndUpdateWindowBounds();
@@ -224,13 +233,11 @@ void OverlayWindowViews::SetUpViews() {
   window_background_view_->SetPaintToLayer(ui::LAYER_SOLID_COLOR);
   GetWindowBackgroundLayer()->SetColor(SK_ColorBLACK);
 
-  // views::View that slightly darkens the video so the media controls appear
-  // more prominently. This is especially important in cases with a very light
-  // background. --------------------------------------------------------------
-  controls_background_view_->SetSize(GetBounds().size());
-  controls_background_view_->SetPaintToLayer(ui::LAYER_SOLID_COLOR);
-  GetControlsBackgroundLayer()->SetColor(gfx::kGoogleGrey900);
-  GetControlsBackgroundLayer()->SetOpacity(0.43f);
+  // views::View that holds the scrim, which appears with the controls. -------
+  controls_scrim_view_->SetSize(GetBounds().size());
+  controls_scrim_view_->SetPaintToLayer(ui::LAYER_SOLID_COLOR);
+  GetControlsScrimLayer()->SetColor(gfx::kGoogleGrey900);
+  GetControlsScrimLayer()->SetOpacity(0.43f);
 
   // views::View that toggles play/pause. -------------------------------------
   play_pause_controls_view_->SetImageAlignment(
@@ -268,7 +275,7 @@ void OverlayWindowViews::SetUpViews() {
   controls_parent_view_->set_owned_by_client();
 
   // Add as child views to this widget. ---------------------------------------
-  GetContentsView()->AddChildView(controls_background_view_.get());
+  GetContentsView()->AddChildView(controls_scrim_view_.get());
   GetContentsView()->AddChildView(controls_parent_view_.get());
   GetContentsView()->AddChildView(close_controls_view_.get());
 
@@ -306,17 +313,17 @@ void OverlayWindowViews::UpdateLayerBoundsWithLetterboxing(
 }
 
 void OverlayWindowViews::UpdateControlsVisibility(bool is_visible) {
-  GetControlsBackgroundLayer()->SetVisible(is_visible);
+  GetControlsScrimLayer()->SetVisible(is_visible);
   GetCloseControlsLayer()->SetVisible(is_visible);
   GetControlsParentLayer()->SetVisible(is_visible);
 }
 
 void OverlayWindowViews::UpdateControlsBounds() {
-  // Adding an extra pixel to width/height makes sure controls background cover
-  // entirely window when platform has fractional scale applied.
+  // Adding an extra pixel to width/height makes sure the scrim covers the
+  // entire window when the platform has fractional scaling applied.
   gfx::Rect larger_window_bounds = GetBounds();
   larger_window_bounds.Inset(-1, -1);
-  controls_background_view_->SetBoundsRect(
+  controls_scrim_view_->SetBoundsRect(
       gfx::Rect(gfx::Point(0, 0), larger_window_bounds.size()));
 
   close_controls_view_->SetPosition(GetBounds().size());
@@ -536,8 +543,8 @@ ui::Layer* OverlayWindowViews::GetVideoLayer() {
   return video_view_->layer();
 }
 
-ui::Layer* OverlayWindowViews::GetControlsBackgroundLayer() {
-  return controls_background_view_->layer();
+ui::Layer* OverlayWindowViews::GetControlsScrimLayer() {
+  return controls_scrim_view_->layer();
 }
 
 ui::Layer* OverlayWindowViews::GetCloseControlsLayer() {
@@ -601,15 +608,37 @@ void OverlayWindowViews::OnKeyEvent(ui::KeyEvent* event) {
     UpdateControlsVisibility(true);
   }
 
+// On Mac, the space key event isn't automatically handled. Only handle space
+// for TogglePlayPause() since tabbing between the buttons is not supported and
+// there is no focus affordance on the buttons.
+#if defined(OS_MACOSX)
+  if (event->type() == ui::ET_KEY_PRESSED &&
+      event->key_code() == ui::VKEY_SPACE) {
+    TogglePlayPause();
+    event->SetHandled();
+  }
+#endif  // OS_MACOSX
+
+// On Windows, the Alt+F4 keyboard combination closes the window. Only handle
+// closure on key press so Close() is not called a second time when the key
+// is released.
+#if defined(OS_WIN)
+  if (event->type() == ui::ET_KEY_PRESSED && event->IsAltDown() &&
+      event->key_code() == ui::VKEY_F4) {
+    controller_->Close(true /* should_pause_video */);
+    event->SetHandled();
+  }
+#endif  // OS_WIN
+
   views::Widget::OnKeyEvent(event);
 }
 
 void OverlayWindowViews::OnMouseEvent(ui::MouseEvent* event) {
   switch (event->type()) {
-    // Only show the media controls when the mouse is hovering over the window.
-    // This is checking for both ENTERED and MOVED because ENTERED is not fired
-    // after a resize on Windows.
-#if defined (OS_WIN)
+// Only show the media controls when the mouse is hovering over the window.
+// This is checking for both ENTERED and MOVED because ENTERED is not fired
+// after a resize on Windows.
+#if defined(OS_WIN)
     case ui::ET_MOUSE_MOVED:
 #endif  // OS_WIN
     case ui::ET_MOUSE_ENTERED:
@@ -628,6 +657,10 @@ void OverlayWindowViews::OnMouseEvent(ui::MouseEvent* event) {
       break;
   }
 
+  // If the user interacts with the window using a mouse, stop the timer to
+  // automatically hide the controls.
+  hide_controls_timer_.Stop();
+
   views::Widget::OnMouseEvent(event);
 }
 
@@ -635,11 +668,15 @@ void OverlayWindowViews::OnGestureEvent(ui::GestureEvent* event) {
   if (event->type() != ui::ET_GESTURE_TAP)
     return;
 
+  // Every time a user taps on the window, restart the timer to automatically
+  // hide the controls.
+  hide_controls_timer_.Reset();
+
   // If the controls were not shown, make them visible. All controls related
   // layers are expected to have the same visibility.
   // TODO(apacible): This placeholder logic should be updated with touchscreen
   // specific investigation. https://crbug/854373
-  if (!GetControlsBackgroundLayer()->visible()) {
+  if (!GetControlsScrimLayer()->visible()) {
     UpdateControlsVisibility(true);
     return;
   }

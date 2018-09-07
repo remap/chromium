@@ -10,8 +10,8 @@
 #include "base/strings/utf_string_conversions.h"
 #include "build/build_config.h"
 #include "chrome/browser/ui/webauthn/other_transports_menu_model.h"
-#include "chrome/grit/browser_resources.h"
 #include "chrome/grit/generated_resources.h"
+#include "chrome/grit/theme_resources.h"
 #include "components/strings/grit/components_strings.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
@@ -97,7 +97,7 @@ void AuthenticatorSheetModelBase::OnModelDestroyed() {
 // AuthenticatorWelcomeSheetModel ---------------------------------------------
 
 gfx::ImageSkia* AuthenticatorWelcomeSheetModel::GetStepIllustration() const {
-  return GetImage(IDR_WEBAUTHN_ILLUSTRATION_WELCOME_1X);
+  return GetImage(IDR_WEBAUTHN_ILLUSTRATION_WELCOME);
 }
 
 base::string16 AuthenticatorWelcomeSheetModel::GetStepTitle() const {
@@ -128,9 +128,13 @@ void AuthenticatorWelcomeSheetModel::OnAccept() {
 
 // AuthenticatorTransportSelectorSheetModel -----------------------------------
 
+bool AuthenticatorTransportSelectorSheetModel::IsBackButtonVisible() const {
+  return false;
+}
+
 gfx::ImageSkia* AuthenticatorTransportSelectorSheetModel::GetStepIllustration()
     const {
-  return GetImage(IDR_WEBAUTHN_ILLUSTRATION_WELCOME_1X);
+  return GetImage(IDR_WEBAUTHN_ILLUSTRATION_WELCOME);
 }
 
 base::string16 AuthenticatorTransportSelectorSheetModel::GetStepTitle() const {
@@ -169,7 +173,7 @@ bool AuthenticatorInsertAndActivateUsbSheetModel::IsActivityIndicatorVisible()
 
 gfx::ImageSkia*
 AuthenticatorInsertAndActivateUsbSheetModel::GetStepIllustration() const {
-  return GetImage(IDR_WEBAUTHN_ILLUSTRATION_USB_1X);
+  return GetImage(IDR_WEBAUTHN_ILLUSTRATION_USB);
 }
 
 base::string16 AuthenticatorInsertAndActivateUsbSheetModel::GetStepTitle()
@@ -190,8 +194,16 @@ AuthenticatorInsertAndActivateUsbSheetModel::GetOtherTransportsMenuModel() {
 
 // AuthenticatorTimeoutErrorModel ---------------------------------------------
 
+bool AuthenticatorTimeoutErrorModel::IsBackButtonVisible() const {
+  return false;
+}
+
+base::string16 AuthenticatorTimeoutErrorModel::GetCancelButtonLabel() const {
+  return l10n_util::GetStringUTF16(IDS_CLOSE);
+}
+
 gfx::ImageSkia* AuthenticatorTimeoutErrorModel::GetStepIllustration() const {
-  return GetImage(IDR_WEBAUTHN_ILLUSTRATION_ERROR_1X);
+  return GetImage(IDR_WEBAUTHN_ILLUSTRATION_ERROR);
 }
 
 base::string16 AuthenticatorTimeoutErrorModel::GetStepTitle() const {
@@ -215,7 +227,7 @@ AuthenticatorNoAvailableTransportsErrorModel::GetCancelButtonLabel() const {
 
 gfx::ImageSkia*
 AuthenticatorNoAvailableTransportsErrorModel::GetStepIllustration() const {
-  return GetImage(IDR_WEBAUTHN_ILLUSTRATION_ERROR_1X);
+  return GetImage(IDR_WEBAUTHN_ILLUSTRATION_ERROR);
 }
 
 base::string16 AuthenticatorNoAvailableTransportsErrorModel::GetStepTitle()
@@ -231,9 +243,18 @@ AuthenticatorNoAvailableTransportsErrorModel::GetStepDescription() const {
 
 // AuthenticatorNotRegisteredErrorModel ---------------------------------------
 
+bool AuthenticatorNotRegisteredErrorModel::IsBackButtonVisible() const {
+  return false;
+}
+
+base::string16 AuthenticatorNotRegisteredErrorModel::GetCancelButtonLabel()
+    const {
+  return l10n_util::GetStringUTF16(IDS_CLOSE);
+}
+
 gfx::ImageSkia* AuthenticatorNotRegisteredErrorModel::GetStepIllustration()
     const {
-  return GetImage(IDR_WEBAUTHN_ILLUSTRATION_ERROR_1X);
+  return GetImage(IDR_WEBAUTHN_ILLUSTRATION_ERROR);
 }
 
 base::string16 AuthenticatorNotRegisteredErrorModel::GetStepTitle() const {
@@ -246,27 +267,20 @@ base::string16 AuthenticatorNotRegisteredErrorModel::GetStepDescription()
       IDS_WEBAUTHN_ERROR_WRONG_KEY_SIGN_DESCRIPTION);
 }
 
-bool AuthenticatorNotRegisteredErrorModel::IsAcceptButtonVisible() const {
-  return true;
-}
-
-bool AuthenticatorNotRegisteredErrorModel::IsAcceptButtonEnabled() const {
-  return true;
-}
-
-base::string16 AuthenticatorNotRegisteredErrorModel::GetAcceptButtonLabel()
-    const {
-  // TODO(engedy): This should use a separate string resource.
-  return l10n_util::GetStringUTF16(IDS_WEBAUTHN_BLUETOOTH_POWER_ON_MANUAL_NEXT);
-}
-
-void AuthenticatorNotRegisteredErrorModel::OnAccept() {}
-
 // AuthenticatorAlreadyRegisteredErrorModel -----------------------------------
+
+bool AuthenticatorAlreadyRegisteredErrorModel::IsBackButtonVisible() const {
+  return false;
+}
+
+base::string16 AuthenticatorAlreadyRegisteredErrorModel::GetCancelButtonLabel()
+    const {
+  return l10n_util::GetStringUTF16(IDS_CLOSE);
+}
 
 gfx::ImageSkia* AuthenticatorAlreadyRegisteredErrorModel::GetStepIllustration()
     const {
-  return GetImage(IDR_WEBAUTHN_ILLUSTRATION_ERROR_1X);
+  return GetImage(IDR_WEBAUTHN_ILLUSTRATION_ERROR);
 }
 
 base::string16 AuthenticatorAlreadyRegisteredErrorModel::GetStepTitle() const {
@@ -279,27 +293,31 @@ base::string16 AuthenticatorAlreadyRegisteredErrorModel::GetStepDescription()
       IDS_WEBAUTHN_ERROR_WRONG_KEY_REGISTER_DESCRIPTION);
 }
 
-bool AuthenticatorAlreadyRegisteredErrorModel::IsAcceptButtonVisible() const {
-  return true;
+// AuthenticatorInternalUnrecognizedErrorSheetModel
+// -----------------------------------
+
+gfx::ImageSkia*
+AuthenticatorInternalUnrecognizedErrorSheetModel::GetStepIllustration() const {
+  return GetImage(IDR_WEBAUTHN_ILLUSTRATION_ERROR);
 }
 
-bool AuthenticatorAlreadyRegisteredErrorModel::IsAcceptButtonEnabled() const {
-  return true;
-}
-
-base::string16 AuthenticatorAlreadyRegisteredErrorModel::GetAcceptButtonLabel()
+base::string16 AuthenticatorInternalUnrecognizedErrorSheetModel::GetStepTitle()
     const {
-  // TODO(engedy): This should use a separate string resource.
-  return l10n_util::GetStringUTF16(IDS_WEBAUTHN_BLUETOOTH_POWER_ON_MANUAL_NEXT);
+  return l10n_util::GetStringUTF16(
+      IDS_WEBAUTHN_ERROR_INTERNAL_UNRECOGNIZED_TITLE);
 }
 
-void AuthenticatorAlreadyRegisteredErrorModel::OnAccept() {}
+base::string16
+AuthenticatorInternalUnrecognizedErrorSheetModel::GetStepDescription() const {
+  return l10n_util::GetStringUTF16(
+      IDS_WEBAUTHN_ERROR_INTERNAL_UNRECOGNIZED_DESCRIPTION);
+}
 
 // AuthenticatorBlePowerOnManualSheetModel ------------------------------------
 
 gfx::ImageSkia* AuthenticatorBlePowerOnManualSheetModel::GetStepIllustration()
     const {
-  return GetImage(IDR_WEBAUTHN_ILLUSTRATION_ERROR_BLUETOOTH_1X);
+  return GetImage(IDR_WEBAUTHN_ILLUSTRATION_ERROR_BLUETOOTH);
 }
 
 base::string16 AuthenticatorBlePowerOnManualSheetModel::GetStepTitle() const {
@@ -318,7 +336,7 @@ bool AuthenticatorBlePowerOnManualSheetModel::IsAcceptButtonVisible() const {
 }
 
 bool AuthenticatorBlePowerOnManualSheetModel::IsAcceptButtonEnabled() const {
-  return true;
+  return dialog_model()->ble_adapter_is_powered();
 }
 
 base::string16 AuthenticatorBlePowerOnManualSheetModel::GetAcceptButtonLabel()
@@ -326,11 +344,62 @@ base::string16 AuthenticatorBlePowerOnManualSheetModel::GetAcceptButtonLabel()
   return l10n_util::GetStringUTF16(IDS_WEBAUTHN_BLUETOOTH_POWER_ON_MANUAL_NEXT);
 }
 
+void AuthenticatorBlePowerOnManualSheetModel::OnBluetoothPoweredStateChanged() {
+  dialog_model()->OnSheetModelDidChange();
+}
+
+void AuthenticatorBlePowerOnManualSheetModel::OnAccept() {
+  dialog_model()->ContinueWithFlowAfterBleAdapterPowered();
+}
+
+// AuthenticatorBlePowerOnAutomaticSheetModel
+// ------------------------------------
+
+bool AuthenticatorBlePowerOnAutomaticSheetModel::IsActivityIndicatorVisible()
+    const {
+  return busy_powering_on_ble_;
+}
+
+gfx::ImageSkia*
+AuthenticatorBlePowerOnAutomaticSheetModel::GetStepIllustration() const {
+  return GetImage(IDR_WEBAUTHN_ILLUSTRATION_ERROR_BLUETOOTH);
+}
+
+base::string16 AuthenticatorBlePowerOnAutomaticSheetModel::GetStepTitle()
+    const {
+  return l10n_util::GetStringUTF16(IDS_WEBAUTHN_BLUETOOTH_POWER_ON_AUTO_TITLE);
+}
+
+base::string16 AuthenticatorBlePowerOnAutomaticSheetModel::GetStepDescription()
+    const {
+  return l10n_util::GetStringUTF16(
+      IDS_WEBAUTHN_BLUETOOTH_POWER_ON_AUTO_DESCRIPTION);
+}
+
+bool AuthenticatorBlePowerOnAutomaticSheetModel::IsAcceptButtonVisible() const {
+  return true;
+}
+
+bool AuthenticatorBlePowerOnAutomaticSheetModel::IsAcceptButtonEnabled() const {
+  return !busy_powering_on_ble_;
+}
+
+base::string16
+AuthenticatorBlePowerOnAutomaticSheetModel::GetAcceptButtonLabel() const {
+  return l10n_util::GetStringUTF16(IDS_WEBAUTHN_BLUETOOTH_POWER_ON_AUTO_NEXT);
+}
+
+void AuthenticatorBlePowerOnAutomaticSheetModel::OnAccept() {
+  busy_powering_on_ble_ = true;
+  dialog_model()->OnSheetModelDidChange();
+  dialog_model()->PowerOnBleAdapter();
+}
+
 // AuthenticatorBlePairingBeginSheetModel -------------------------------------
 
 gfx::ImageSkia* AuthenticatorBlePairingBeginSheetModel::GetStepIllustration()
     const {
-  return GetImage(IDR_WEBAUTHN_ILLUSTRATION_BLE_1X);
+  return GetImage(IDR_WEBAUTHN_ILLUSTRATION_BLE);
 }
 
 base::string16 AuthenticatorBlePairingBeginSheetModel::GetStepTitle() const {
@@ -359,7 +428,7 @@ base::string16 AuthenticatorBlePairingBeginSheetModel::GetAcceptButtonLabel()
 
 gfx::ImageSkia*
 AuthenticatorBleEnterPairingModeSheetModel::GetStepIllustration() const {
-  return GetImage(IDR_WEBAUTHN_ILLUSTRATION_BLE_1X);
+  return GetImage(IDR_WEBAUTHN_ILLUSTRATION_BLE);
 }
 
 base::string16 AuthenticatorBleEnterPairingModeSheetModel::GetStepTitle()
@@ -382,7 +451,7 @@ bool AuthenticatorBleDeviceSelectionSheetModel::IsActivityIndicatorVisible()
 
 gfx::ImageSkia* AuthenticatorBleDeviceSelectionSheetModel::GetStepIllustration()
     const {
-  return GetImage(IDR_WEBAUTHN_ILLUSTRATION_BLE_NAME_1X);
+  return GetImage(IDR_WEBAUTHN_ILLUSTRATION_BLE_NAME);
 }
 
 base::string16 AuthenticatorBleDeviceSelectionSheetModel::GetStepTitle() const {
@@ -399,7 +468,7 @@ base::string16 AuthenticatorBleDeviceSelectionSheetModel::GetStepDescription()
 
 gfx::ImageSkia* AuthenticatorBlePinEntrySheetModel::GetStepIllustration()
     const {
-  return GetImage(IDR_WEBAUTHN_ILLUSTRATION_BLE_PIN_1X);
+  return GetImage(IDR_WEBAUTHN_ILLUSTRATION_BLE_PIN);
 }
 
 base::string16 AuthenticatorBlePinEntrySheetModel::GetStepTitle() const {
@@ -432,7 +501,7 @@ bool AuthenticatorBleVerifyingSheetModel::IsActivityIndicatorVisible() const {
 
 gfx::ImageSkia* AuthenticatorBleVerifyingSheetModel::GetStepIllustration()
     const {
-  return GetImage(IDR_WEBAUTHN_ILLUSTRATION_BLE_1X);
+  return GetImage(IDR_WEBAUTHN_ILLUSTRATION_BLE);
 }
 
 base::string16 AuthenticatorBleVerifyingSheetModel::GetStepTitle() const {
@@ -461,7 +530,7 @@ bool AuthenticatorBleActivateSheetModel::IsActivityIndicatorVisible() const {
 
 gfx::ImageSkia* AuthenticatorBleActivateSheetModel::GetStepIllustration()
     const {
-  return GetImage(IDR_WEBAUTHN_ILLUSTRATION_BLE_TAP_1X);
+  return GetImage(IDR_WEBAUTHN_ILLUSTRATION_BLE_TAP);
 }
 
 base::string16 AuthenticatorBleActivateSheetModel::GetStepTitle() const {
@@ -501,7 +570,7 @@ bool AuthenticatorTouchIdSheetModel::IsBackButtonVisible() const {
 
 gfx::ImageSkia* AuthenticatorTouchIdSheetModel::GetStepIllustration() const {
 #if defined(OS_MACOSX)
-  return GetImage(IDR_WEBAUTHN_ILLUSTRATION_TOUCHID_1X);
+  return GetImage(IDR_WEBAUTHN_ILLUSTRATION_TOUCHID);
 #else
   // Avoid bundling the PNG on platforms where it's not needed.
   return nullptr;
@@ -545,7 +614,7 @@ bool AuthenticatorPaaskSheetModel::IsActivityIndicatorVisible() const {
 }
 
 gfx::ImageSkia* AuthenticatorPaaskSheetModel::GetStepIllustration() const {
-  return GetImage(IDR_WEBAUTHN_ILLUSTRATION_PHONE_1X);
+  return GetImage(IDR_WEBAUTHN_ILLUSTRATION_PHONE);
 }
 
 base::string16 AuthenticatorPaaskSheetModel::GetStepTitle() const {

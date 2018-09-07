@@ -50,8 +50,7 @@ bool IsCableDevice(const BluetoothDevice* device) {
 // with the EID as its UUID.
 std::unique_ptr<BluetoothAdvertisement::Data> ConstructAdvertisementData(
     uint8_t version_number,
-    base::span<const uint8_t, FidoCableDiscovery::kEphemeralIdSize>
-        client_eid) {
+    base::span<const uint8_t, kEphemeralIdSize> client_eid) {
   auto advertisement_data = std::make_unique<BluetoothAdvertisement::Data>(
       BluetoothAdvertisement::AdvertisementType::ADVERTISEMENT_TYPE_BROADCAST);
 
@@ -62,20 +61,37 @@ std::unique_ptr<BluetoothAdvertisement::Data> ConstructAdvertisementData(
   advertisement_data->set_service_uuids(std::move(list));
 
 #elif defined(OS_WIN)
-  constexpr uint16_t kFidoManufacturerId = 0xFFFD;
-  constexpr std::array<uint8_t, 2> kFidoManufacturerDataHeader = {0x51, 0xFE};
+  // References:
+  // https://www.bluetooth.com/specifications/assigned-numbers/company-identifiers
+  // go/google-ble-manufacturer-data-format
+  static constexpr uint16_t kGoogleManufacturerId = 0x00E0;
+  static constexpr uint8_t kCableGoogleManufacturerDataType = 0x15;
+
+  // Reference:
+  // https://github.com/arnar/fido-2-specs/blob/fido-client-to-authenticator-protocol.bs#L4314
+  static constexpr uint8_t kCableFlags = 0x20;
+
+  static constexpr uint8_t kCableGoogleManufacturerDataLength =
+      3u + kEphemeralIdSize;
+  std::array<uint8_t, 4> kCableGoogleManufacturerDataHeader = {
+      kCableGoogleManufacturerDataLength, kCableGoogleManufacturerDataType,
+      kCableFlags, version_number};
 
   auto manufacturer_data =
       std::make_unique<BluetoothAdvertisement::ManufacturerData>();
   std::vector<uint8_t> manufacturer_data_value;
   fido_parsing_utils::Append(&manufacturer_data_value,
-                             kFidoManufacturerDataHeader);
+                             kCableGoogleManufacturerDataHeader);
   fido_parsing_utils::Append(&manufacturer_data_value, client_eid);
-  manufacturer_data->emplace(kFidoManufacturerId,
+  manufacturer_data->emplace(kGoogleManufacturerId,
                              std::move(manufacturer_data_value));
   advertisement_data->set_manufacturer_data(std::move(manufacturer_data));
 
 #elif defined(OS_LINUX) || defined(OS_CHROMEOS)
+  // Reference:
+  // https://github.com/arnar/fido-2-specs/blob/fido-client-to-authenticator-protocol.bs#L4314
+  static constexpr uint8_t kCableFlags = 0x20;
+
   // Service data for ChromeOS and Linux is 1 byte corresponding to Cable flags,
   // followed by 1 byte corresponding to Cable version number, followed by 16
   // bytes corresponding to client EID.
@@ -83,7 +99,7 @@ std::unique_ptr<BluetoothAdvertisement::Data> ConstructAdvertisementData(
   std::vector<uint8_t> service_data_value(18, 0);
   // Since the remainder of this service data field is a Cable EID, set the 5th
   // bit of the flag byte.
-  service_data_value[0] = 1 << 5;
+  service_data_value[0] = kCableFlags;
   service_data_value[1] = version_number;
   std::copy(client_eid.begin(), client_eid.end(),
             service_data_value.begin() + 2);
@@ -97,9 +113,9 @@ std::unique_ptr<BluetoothAdvertisement::Data> ConstructAdvertisementData(
 
 }  // namespace
 
-// FidoCableDiscovery::CableDiscoveryData -------------------------------------
+// CableDiscoveryData -------------------------------------
 
-FidoCableDiscovery::CableDiscoveryData::CableDiscoveryData(
+CableDiscoveryData::CableDiscoveryData(
     uint8_t version,
     const EidArray& client_eid,
     const EidArray& authenticator_eid,
@@ -109,19 +125,30 @@ FidoCableDiscovery::CableDiscoveryData::CableDiscoveryData(
       authenticator_eid(authenticator_eid),
       session_pre_key(session_pre_key) {}
 
-FidoCableDiscovery::CableDiscoveryData::CableDiscoveryData(
-    const CableDiscoveryData& data) = default;
+CableDiscoveryData::CableDiscoveryData(const CableDiscoveryData& data) =
+    default;
 
-FidoCableDiscovery::CableDiscoveryData& FidoCableDiscovery::CableDiscoveryData::
-operator=(const CableDiscoveryData& other) = default;
+CableDiscoveryData& CableDiscoveryData::operator=(
+    const CableDiscoveryData& other) = default;
 
-FidoCableDiscovery::CableDiscoveryData::~CableDiscoveryData() = default;
+CableDiscoveryData::~CableDiscoveryData() = default;
 
 // FidoCableDiscovery ---------------------------------------------------------
 
 FidoCableDiscovery::FidoCableDiscovery(
     std::vector<CableDiscoveryData> discovery_data)
-    : discovery_data_(std::move(discovery_data)), weak_factory_(this) {}
+    : FidoBleDiscoveryBase(
+          FidoTransportProtocol::kCloudAssistedBluetoothLowEnergy),
+      discovery_data_(std::move(discovery_data)),
+      weak_factory_(this) {
+// Windows currently does not support multiple EIDs, thus we ignore any extra
+// discovery data.
+// TODO(https://crbug.com/837088): Add support for multiple EIDs on Windows.
+#if defined(OS_WIN)
+  if (discovery_data_.size() > 1u)
+    discovery_data_.erase(discovery_data_.begin() + 1, discovery_data_.end());
+#endif
+}
 
 // This is a workaround for https://crbug.com/846522
 FidoCableDiscovery::~FidoCableDiscovery() {
@@ -162,6 +189,20 @@ void FidoCableDiscovery::DeviceRemoved(BluetoothAdapter* adapter,
     const auto& device_address = device->GetAddress();
     VLOG(2) << "Cable device removed: " << device_address;
     RemoveDevice(FidoBleDevice::GetId(device_address));
+  }
+}
+
+void FidoCableDiscovery::AdapterPoweredChanged(BluetoothAdapter* adapter,
+                                               bool powered) {
+  // If Bluetooth adapter is powered on, resume scanning for nearby Cable
+  // devices and start advertising client EIDs.
+  if (powered) {
+    StartCableDiscovery();
+  } else {
+    // In order to prevent duplicate client EIDs from being advertised when
+    // BluetoothAdapter is powered back on, unregister all existing client
+    // EIDs.
+    StopAdvertisements(base::DoNothing());
   }
 }
 
@@ -214,6 +255,13 @@ void FidoCableDiscovery::StopAdvertisements(base::OnceClosure callback) {
       base::BarrierClosure(advertisement_success_counter_, std::move(callback));
   for (auto advertisement : advertisements_)
     advertisement.second->Unregister(barrier_closure, base::DoNothing());
+
+#if !defined(OS_WIN)
+  // On Windows the discovery is the only owner of the advertisements, meaning
+  // the advertisements would be destroyed before |barrier_closure| could be
+  // invoked.
+  advertisements_.clear();
+#endif  // !defined(OS_WIN)
 }
 
 void FidoCableDiscovery::OnAdvertisementRegistered(
@@ -301,8 +349,7 @@ void FidoCableDiscovery::ValidateAuthenticatorHandshakeMessage(
   }
 }
 
-const FidoCableDiscovery::CableDiscoveryData*
-FidoCableDiscovery::GetFoundCableDiscoveryData(
+const CableDiscoveryData* FidoCableDiscovery::GetFoundCableDiscoveryData(
     const BluetoothDevice* device) const {
   const auto* discovery_data =
       GetFoundCableDiscoveryDataFromServiceData(device);
@@ -313,7 +360,7 @@ FidoCableDiscovery::GetFoundCableDiscoveryData(
   return GetFoundCableDiscoveryDataFromServiceUUIDs(device);
 }
 
-const FidoCableDiscovery::CableDiscoveryData*
+const CableDiscoveryData*
 FidoCableDiscovery::GetFoundCableDiscoveryDataFromServiceData(
     const BluetoothDevice* device) const {
   const auto* service_data =
@@ -345,7 +392,7 @@ FidoCableDiscovery::GetFoundCableDiscoveryDataFromServiceData(
              : nullptr;
 }
 
-const FidoCableDiscovery::CableDiscoveryData*
+const CableDiscoveryData*
 FidoCableDiscovery::GetFoundCableDiscoveryDataFromServiceUUIDs(
     const BluetoothDevice* device) const {
   const auto service_uuids = device->GetUUIDs();

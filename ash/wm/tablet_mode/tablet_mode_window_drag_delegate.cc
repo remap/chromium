@@ -15,6 +15,7 @@
 #include "ash/wm/splitview/split_view_constants.h"
 #include "ash/wm/splitview/split_view_drag_indicators.h"
 #include "ash/wm/window_transient_descendant_iterator.h"
+#include "ui/compositor/scoped_layer_animation_settings.h"
 #include "ui/gfx/transform_util.h"
 #include "ui/wm/core/coordinate_conversion.h"
 
@@ -31,6 +32,11 @@ constexpr float kIndicatorsThresholdRatio = 0.1;
 // and maximize the dragged window after the drag ends.
 constexpr float kMaximizeThresholdRatio = 0.4;
 
+// The duration of the animation that occurs on restoring the dragged window
+// back to its original state.
+constexpr base::TimeDelta kRestoreDraggedWindowAnimationDurationMs =
+    base::TimeDelta::FromMilliseconds(250);
+
 // Returns the window selector if overview mode is active, otherwise returns
 // nullptr.
 WindowSelector* GetWindowSelector() {
@@ -39,28 +45,36 @@ WindowSelector* GetWindowSelector() {
              : nullptr;
 }
 
-// Gets the bounds of selected new selector item in overview grid that is
-// displaying in the same root window as |dragged_window|.
-gfx::Rect GetBoundsOfSelectedNewSelectorItem(aura::Window* dragged_window) {
-  if (!Shell::Get()->window_selector_controller()->IsSelecting())
-    return gfx::Rect();
+// Returns the new selector item in overview during drag.
+WindowSelectorItem* GetNewSelectorItem(aura::Window* dragged_window) {
+  if (!GetWindowSelector())
+    return nullptr;
 
   WindowGrid* window_grid = GetWindowSelector()->GetGridWithRootWindow(
       dragged_window->GetRootWindow());
   if (!window_grid || window_grid->empty())
-    return gfx::Rect();
+    return nullptr;
 
-  WindowSelectorItem* new_selector_item = window_grid->GetNewSelectorItem();
+  return window_grid->GetNewSelectorItem();
+}
+
+// Gets the bounds of selected new selector item in overview grid that is
+// displaying in the same root window as |dragged_window|. Note that the
+// returned bounds is scaled-up.
+gfx::Rect GetBoundsOfSelectedNewSelectorItem(aura::Window* dragged_window) {
+  WindowSelectorItem* new_selector_item = GetNewSelectorItem(dragged_window);
   if (!new_selector_item)
     return gfx::Rect();
 
   return new_selector_item->GetBoundsOfSelectedItem();
 }
 
-// Set |transform| to |window| and its transient child windows. |transform| is
-// the transform that applies to |window| and needes to be adjusted for the
-// transient child windows.
-void SetTransform(aura::Window* window, const gfx::Transform& transform) {
+// Set |transform| to |window| and its transient child windows, animate the
+// process if |animate| is true. |transform| is the transform that applies to
+// |window| and needes to be adjusted for the transient child windows.
+void SetTransform(aura::Window* window,
+                  const gfx::Transform& transform,
+                  bool animate) {
   gfx::Point target_origin(window->GetTargetBounds().origin());
   for (auto* window_iter : wm::GetTransientTreeIterator(window)) {
     aura::Window* parent_window = window_iter->parent();
@@ -70,7 +84,16 @@ void SetTransform(aura::Window* window, const gfx::Transform& transform) {
         TransformAboutPivot(gfx::Point(target_origin.x() - original_bounds.x(),
                                        target_origin.y() - original_bounds.y()),
                             transform);
-    window_iter->SetTransform(new_transform);
+
+    if (animate && window_iter->layer()) {
+      ui::ScopedLayerAnimationSettings settings(
+          window_iter->layer()->GetAnimator());
+      settings.SetTransitionDuration(kRestoreDraggedWindowAnimationDurationMs);
+      settings.SetTweenType(gfx::Tween::FAST_OUT_SLOW_IN);
+      window_iter->SetTransform(new_transform);
+    } else {
+      window_iter->SetTransform(new_transform);
+    }
   }
 }
 
@@ -175,6 +198,24 @@ void TabletModeWindowDragDelegate::ContinueWindowDrag(
   }
 }
 
+bool TabletModeWindowDragDelegate::ShouldDropWindowIntoOverviewOnDragPosition(
+    SplitViewController::SnapPosition snap_position,
+    int end_y_position_in_screen) const {
+  // |snap_position| is not NONE, which means the preview area is shown or
+  // splitview is active.
+  if (snap_position != SplitViewController::NONE)
+    return false;
+
+  WindowSelectorItem* new_selector_item = GetNewSelectorItem(dragged_window_);
+  if (!new_selector_item)
+    return false;
+
+  const gfx::Rect new_selector_item_bounds =
+      new_selector_item->GetTransformedBounds();
+  return end_y_position_in_screen >
+         kDragPositionToOverviewRatio * new_selector_item_bounds.y();
+}
+
 void TabletModeWindowDragDelegate::EndWindowDrag(
     wm::WmToplevelWindowEventHandler::DragResult result,
     const gfx::Point& location_in_screen) {
@@ -189,8 +230,12 @@ void TabletModeWindowDragDelegate::EndWindowDrag(
 
   // The window might merge into an overview window or become a new window item
   // in overview mode.
-  if (GetWindowSelector())
-    GetWindowSelector()->OnWindowDragEnded(dragged_window_, location_in_screen);
+  if (GetWindowSelector()) {
+    GetWindowSelector()->OnWindowDragEnded(
+        dragged_window_, location_in_screen,
+        ShouldDropWindowIntoOverviewOnDragPosition(snap_position,
+                                                   location_in_screen.y()));
+  }
   split_view_controller_->OnWindowDragEnded(dragged_window_, snap_position,
                                             location_in_screen);
   split_view_drag_indicators_->SetIndicatorState(IndicatorState::kNone,
@@ -205,7 +250,7 @@ void TabletModeWindowDragDelegate::EndWindowDrag(
   // transform to identity.
   if (!dragged_window_->layer()->GetTargetTransform().IsIdentity() &&
       !snapped_or_into_overview) {
-    SetTransform(dragged_window_, gfx::Transform());
+    SetTransform(dragged_window_, gfx::Transform(), /*animate=*/true);
   }
 
   // Reset the dragged window's window shadow elevation.
@@ -367,7 +412,7 @@ void TabletModeWindowDragDelegate::UpdateDraggedWindowTransform(
       (location_in_screen.y() - window_bounds.y()) -
           (initial_location_in_screen_.y() - window_bounds.y()) * scale);
   transform.Scale(scale, scale);
-  SetTransform(dragged_window_, transform);
+  SetTransform(dragged_window_, transform, /*animate=*/false);
 }
 
 }  // namespace ash

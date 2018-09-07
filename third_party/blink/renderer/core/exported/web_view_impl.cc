@@ -1580,9 +1580,6 @@ void WebViewImpl::UpdateLifecycle(LifecycleUpdate requested_update) {
   if (requested_update == LifecycleUpdate::kPrePaint)
     return;
 
-  if (WebDevToolsAgentImpl* devtools = MainFrameDevToolsAgentImpl())
-    devtools->PaintOverlay();
-
   if (LocalFrameView* view = MainFrameImpl()->GetFrameView()) {
     LocalFrame* frame = MainFrameImpl()->GetFrame();
     WebWidgetClient* client =
@@ -1742,6 +1739,11 @@ WebInputEventResult WebViewImpl::HandleInputEvent(
     return WebInputEventResult::kHandledSystem;
   }
 
+  // TODO(nzolghadr): Add pointerrawmove in pointerlock path as well.
+  if (is_pointer_locked &&
+      input_event.GetType() == WebInputEvent::kPointerRawMove)
+    return WebInputEventResult::kHandledSystem;
+
   Document& main_frame_document = *MainFrameImpl()->GetFrame()->GetDocument();
 
   if (input_event.GetType() != WebInputEvent::kMouseMove) {
@@ -1759,7 +1761,8 @@ WebInputEventResult WebViewImpl::HandleInputEvent(
   }
 
   if (mouse_capture_node_ &&
-      WebInputEvent::IsMouseEventType(input_event.GetType())) {
+      (WebInputEvent::IsMouseEventType(input_event.GetType()) ||
+       input_event.GetType() == WebInputEvent::kPointerRawMove)) {
     TRACE_EVENT1("input", "captured mouse event", "type",
                  input_event.GetType());
     // Save m_mouseCaptureNode since mouseCaptureLost() will clear it.
@@ -1778,6 +1781,10 @@ WebInputEventResult WebViewImpl::HandleInputEvent(
         break;
       case WebInputEvent::kMouseMove:
         event_type = EventTypeNames::mousemove;
+        break;
+      case WebInputEvent::kPointerRawMove:
+        // There will be no mouse event for raw move events.
+        event_type = EventTypeNames::pointerrawmove;
         break;
       case WebInputEvent::kMouseLeave:
         event_type = EventTypeNames::mouseout;
@@ -2991,8 +2998,6 @@ void WebViewImpl::MainFrameLayoutUpdated() {
   if (!client_)
     return;
 
-  UpdatePageOverlays();
-
   fullscreen_controller_->DidUpdateMainFrameLayout();
   client_->DidUpdateMainFrameLayout();
 }
@@ -3372,11 +3377,6 @@ base::WeakPtr<CompositorMutatorImpl> WebViewImpl::EnsureCompositorMutator(
   DCHECK(mutator_task_runner_);
   *mutator_task_runner = mutator_task_runner_;
   return mutator_;
-}
-
-void WebViewImpl::UpdatePageOverlays() {
-  if (WebDevToolsAgentImpl* devtools = MainFrameDevToolsAgentImpl())
-    devtools->LayoutOverlay();
 }
 
 float WebViewImpl::DeviceScaleFactor() const {

@@ -1759,7 +1759,7 @@ void RenderWidgetHostViewAura::OnWindowFocused(aura::Window* gained_focus,
     // We need to honor input bypass if the associated tab is does not want
     // input. This gives the current focused window a chance to be the text
     // input client and handle events.
-    if (host()->ignore_input_events())
+    if (host()->IsIgnoringInputEvents())
       return;
 
     host()->GotFocus();
@@ -2234,7 +2234,7 @@ void RenderWidgetHostViewAura::AddedToRootWindow() {
 #endif
 
   if (delegated_frame_host_)
-    delegated_frame_host_->SetCompositor(window_->GetHost()->compositor());
+    delegated_frame_host_->AttachToCompositor(window_->GetHost()->compositor());
 }
 
 void RenderWidgetHostViewAura::RemovingFromRootWindow() {
@@ -2247,7 +2247,7 @@ void RenderWidgetHostViewAura::RemovingFromRootWindow() {
 
   window_->GetHost()->RemoveObserver(this);
   if (delegated_frame_host_)
-    delegated_frame_host_->ResetCompositor();
+    delegated_frame_host_->DetachFromCompositor();
 
 #if defined(OS_WIN)
   // Update the legacy window's parent temporarily to the hidden window. It

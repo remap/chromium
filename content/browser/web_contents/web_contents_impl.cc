@@ -1496,6 +1496,8 @@ void WebContentsImpl::SetHasPictureInPictureVideo(
     return;
   has_picture_in_picture_video_ = has_picture_in_picture_video;
   NotifyNavigationStateChanged(INVALIDATE_TYPE_TAB);
+  for (auto& observer : observers_)
+    observer.MediaPictureInPictureChanged(has_picture_in_picture_video_);
 }
 
 bool WebContentsImpl::IsCrashed() const {
@@ -1661,6 +1663,10 @@ bool WebContentsImpl::HasRecentInteractiveInputEvent() const {
   // threshhold).
   UMA_HISTOGRAM_TIMES("Tabs.TimeSinceLastInteraction", delta);
   return delta <= kMaxInterval;
+}
+
+void WebContentsImpl::SetIgnoreInputEvents(bool ignore_input_events) {
+  ignore_input_events_ = ignore_input_events;
 }
 
 #if defined(OS_ANDROID)
@@ -5890,6 +5896,17 @@ void WebContentsImpl::DidReceiveInputEvent(
     SendUserGestureForResourceDispatchHost();
 }
 
+bool WebContentsImpl::ShouldIgnoreInputEvents() {
+  WebContentsImpl* web_contents = this;
+  while (web_contents) {
+    if (web_contents->ignore_input_events_)
+      return true;
+    web_contents = web_contents->GetOuterWebContents();
+  }
+
+  return false;
+}
+
 void WebContentsImpl::FocusOwningWebContents(
     RenderWidgetHostImpl* render_widget_host) {
   // The PDF plugin still runs as a BrowserPlugin and must go through the
@@ -6486,11 +6503,6 @@ void WebContentsImpl::MediaResized(
 void WebContentsImpl::MediaEffectivelyFullscreenChanged(bool is_fullscreen) {
   for (auto& observer : observers_)
     observer.MediaEffectivelyFullscreenChanged(is_fullscreen);
-}
-
-void WebContentsImpl::MediaPictureInPictureChanged(bool is_picture_in_picture) {
-  for (auto& observer : observers_)
-    observer.MediaPictureInPictureChanged(is_picture_in_picture);
 }
 
 base::Optional<gfx::Size> WebContentsImpl::GetFullscreenVideoSize() {

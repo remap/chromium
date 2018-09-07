@@ -4,6 +4,8 @@
 
 package org.chromium.chrome.browser.media.router.caf;
 
+import static org.chromium.chrome.browser.media.router.caf.CastUtils.isSameOrigin;
+
 import android.os.Handler;
 import android.support.v4.util.ArrayMap;
 import android.text.TextUtils;
@@ -22,6 +24,7 @@ import org.chromium.chrome.browser.media.router.CastRequestIdGenerator;
 import org.chromium.chrome.browser.media.router.CastSessionUtil;
 import org.chromium.chrome.browser.media.router.ClientRecord;
 import org.chromium.chrome.browser.media.router.MediaSink;
+import org.chromium.chrome.browser.media.router.cast.CastMediaSource;
 
 import java.io.IOException;
 import java.util.ArrayDeque;
@@ -41,7 +44,8 @@ public class CafMessageHandler {
     private static final String TAG = "CafMR";
 
     // Sequence number used when no sequence number is required or was initially passed.
-    static final int INVALID_SEQUENCE_NUMBER = -1;
+    static final int VOID_SEQUENCE_NUMBER = -1;
+    static final int TIMEOUT_IMMEDIATE = 0;
 
     private static final String MEDIA_MESSAGE_TYPES[] = {
             "PLAY", "LOAD", "PAUSE", "SEEK", "STOP_MEDIA", "MEDIA_SET_VOLUME", "MEDIA_GET_STATUS",
@@ -139,13 +143,122 @@ public class CafMessageHandler {
      */
     public void onSessionStarted(CastSessionController sessionController) {
         mSessionController = sessionController;
-        for (ClientRecord client : mRouteProvider.getClientRecords().values()) {
+        for (ClientRecord client : mRouteProvider.getClientIdToRecords().values()) {
             if (!client.isConnected) continue;
 
-            sendEnclosedMessageToClient(
-                    client.clientId, "new_session", buildSessionMessage(), INVALID_SEQUENCE_NUMBER);
+            notifySessionConnectedToClient(client.clientId);
         }
-        // Register namespace.
+        // TODO(zqzhang): Register namespaces.
+        // TODO(zqzhang): Request media status.
+    }
+
+    /** Notify a client that a session has connected. */
+    private void notifySessionConnectedToClient(String clientId) {
+        sendEnclosedMessageToClient(
+                clientId, "new_session", buildSessionMessage(), VOID_SEQUENCE_NUMBER);
+    }
+
+    /**
+     * Handle a message sent from client.
+     *
+     * @return whether the message has been handled successfully
+     */
+    public boolean handleMessageFromClient(String message) {
+        try {
+            JSONObject jsonMessage = new JSONObject(message);
+
+            String messageType = jsonMessage.optString("type");
+            switch (messageType) {
+                case "client_connect":
+                    return handleClientConnectMessage(jsonMessage);
+                case "client_disconnect":
+                    return handleClientDisconnectMessage(jsonMessage);
+                case "leave_session":
+                    return handleClientLeaveSessionMessage(jsonMessage);
+                default: // fall out
+            }
+            return handleSessionMessageFromClient(jsonMessage);
+        } catch (JSONException e) {
+            Log.e(TAG, "JSONException while handling internal message: " + e);
+        }
+        return false;
+    }
+
+    private boolean handleClientConnectMessage(JSONObject jsonMessage) throws JSONException {
+        String clientId = jsonMessage.getString("clientId");
+        if (clientId == null) return false;
+
+        ClientRecord clientRecord = mRouteProvider.getClientIdToRecords().get(clientId);
+        if (clientRecord == null) return false;
+
+        clientRecord.isConnected = true;
+        if (mSessionController.isConnected()) {
+            notifySessionConnectedToClient(clientRecord.clientId);
+        }
+        mRouteProvider.flushPendingMessagesToClient(clientRecord);
+
+        return true;
+    }
+
+    private boolean handleClientDisconnectMessage(JSONObject jsonMessage) throws JSONException {
+        String clientId = jsonMessage.getString("clientId");
+        if (clientId == null) return false;
+
+        ClientRecord client = mRouteProvider.getClientIdToRecords().get(clientId);
+        if (client == null) return false;
+
+        mRouteProvider.removeRoute(client.routeId, /* error= */ null);
+
+        return true;
+    }
+
+    private boolean handleClientLeaveSessionMessage(JSONObject jsonMessage) throws JSONException {
+        String clientId = jsonMessage.getString("clientId");
+        if (clientId == null || !mSessionController.isConnected()) return false;
+
+        String sessionId = jsonMessage.getString("message");
+        if (!mSessionController.getSession().getSessionId().equals(sessionId)) return false;
+
+        ClientRecord leavingClient = mRouteProvider.getClientIdToRecords().get(clientId);
+        if (leavingClient == null) return false;
+
+        int sequenceNumber = jsonMessage.optInt("sequenceNumber", VOID_SEQUENCE_NUMBER);
+        mRouteProvider.sendMessageToClient(clientId,
+                buildSimpleSessionMessage("leave_session", sequenceNumber, clientId, null));
+
+        // Send a "disconnect_session" message to all the clients that match with the leaving
+        // client's auto join policy.
+        for (ClientRecord client : mRouteProvider.getClientIdToRecords().values()) {
+            boolean shouldNotifyClient = false;
+            if (CastMediaSource.AUTOJOIN_TAB_AND_ORIGIN_SCOPED.equals(leavingClient.autoJoinPolicy)
+                    && isSameOrigin(client.origin, leavingClient.origin)
+                    && client.tabId == leavingClient.tabId) {
+                shouldNotifyClient = true;
+            }
+            if (CastMediaSource.AUTOJOIN_ORIGIN_SCOPED.equals(leavingClient.autoJoinPolicy)
+                    && isSameOrigin(client.origin, leavingClient.origin)) {
+                shouldNotifyClient = true;
+            }
+            if (shouldNotifyClient) {
+                mRouteProvider.sendMessageToClient(client.clientId,
+                        buildSimpleSessionMessage("disconnect_session", VOID_SEQUENCE_NUMBER,
+                                client.clientId, sessionId));
+            }
+        }
+
+        return true;
+    }
+
+    /** Builds a simple message for session-related events. */
+    private String buildSimpleSessionMessage(
+            String type, int sequenceNumber, String clientId, String message) throws JSONException {
+        JSONObject jsonMessage = new JSONObject();
+        jsonMessage.put("type", type);
+        jsonMessage.put("sequenceNumber", sequenceNumber);
+        jsonMessage.put("timeoutMillis", TIMEOUT_IMMEDIATE);
+        jsonMessage.put("clientId", clientId);
+        jsonMessage.put("message", message);
+        return jsonMessage.toString();
     }
 
     /////////////////////////////////////////////////////////////////////////////////////////////
@@ -156,7 +269,7 @@ public class CafMessageHandler {
      * connection. All these messages are sent from the page to the Cast SDK.
      * @param message The JSONObject message to be handled.
      */
-    public boolean handleSessionMessageFromClient(JSONObject message) throws JSONException {
+    private boolean handleSessionMessageFromClient(JSONObject message) throws JSONException {
         String messageType = message.getString("type");
         if ("v2_message".equals(messageType)) {
             return handleCastV2MessageFromClient(message);
@@ -184,11 +297,13 @@ public class CafMessageHandler {
         assert "v2_message".equals(jsonMessage.getString("type"));
 
         final String clientId = jsonMessage.getString("clientId");
-        if (clientId == null || !mRouteProvider.getClients().contains(clientId)) return false;
+        if (clientId == null || !mRouteProvider.getClientIdToRecords().containsKey(clientId)) {
+            return false;
+        }
 
         JSONObject jsonCastMessage = jsonMessage.getJSONObject("message");
         String messageType = jsonCastMessage.getString("type");
-        final int sequenceNumber = jsonMessage.optInt("sequenceNumber", INVALID_SEQUENCE_NUMBER);
+        final int sequenceNumber = jsonMessage.optInt("sequenceNumber", VOID_SEQUENCE_NUMBER);
 
         if ("STOP".equals(messageType)) {
             handleStopMessage(clientId, sequenceNumber);
@@ -290,7 +405,9 @@ public class CafMessageHandler {
         assert "app_message".equals(jsonMessage.getString("type"));
 
         String clientId = jsonMessage.getString("clientId");
-        if (clientId == null || !mRouteProvider.getClients().contains(clientId)) return false;
+        if (clientId == null || !mRouteProvider.getClientIdToRecords().containsKey(clientId)) {
+            return false;
+        }
 
         JSONObject jsonAppMessageWrapper = jsonMessage.getJSONObject("message");
 
@@ -304,7 +421,7 @@ public class CafMessageHandler {
 
         if (!mSessionController.getNamespaces().contains(namespaceName)) return false;
 
-        int sequenceNumber = jsonMessage.optInt("sequenceNumber", INVALID_SEQUENCE_NUMBER);
+        int sequenceNumber = jsonMessage.optInt("sequenceNumber", VOID_SEQUENCE_NUMBER);
 
         Object actualMessageObject = jsonAppMessageWrapper.get("message");
         if (actualMessageObject == null) return false;
@@ -326,7 +443,7 @@ public class CafMessageHandler {
         removeNullFields(message);
 
         // Map the request id to a valid sequence number only.
-        if (sequenceNumber != INVALID_SEQUENCE_NUMBER) {
+        if (sequenceNumber != VOID_SEQUENCE_NUMBER) {
             // If for some reason, there is already a requestId other than 0, it
             // is kept. Otherwise, one is generated. In all cases it's associated with the
             // sequenceNumber passed by the client.
@@ -382,11 +499,10 @@ public class CafMessageHandler {
 
         if (isMediaStatusMessage(message)) {
             // MEDIA_STATUS needs to be sent to all the clients.
-            for (String clientId : mRouteProvider.getClients()) {
+            for (String clientId : mRouteProvider.getClientIdToRecords().keySet()) {
                 if (request != null && clientId.equals(request.clientId)) continue;
 
-                sendEnclosedMessageToClient(
-                        clientId, "v2_message", message, INVALID_SEQUENCE_NUMBER);
+                sendEnclosedMessageToClient(clientId, "v2_message", message, VOID_SEQUENCE_NUMBER);
             }
         }
         if (request != null) {
@@ -423,11 +539,11 @@ public class CafMessageHandler {
      * Notifies the application has stopped to all requesting clients.
      */
     public void onApplicationStopped() {
-        for (String clientId : mRouteProvider.getClients()) {
+        for (String clientId : mRouteProvider.getClientIdToRecords().keySet()) {
             Queue<Integer> sequenceNumbersForClient = mStopRequests.get(clientId);
             if (sequenceNumbersForClient == null) {
                 sendEnclosedMessageToClient(clientId, "remove_session",
-                        mSessionController.getSession().getSessionId(), INVALID_SEQUENCE_NUMBER);
+                        mSessionController.getSession().getSessionId(), VOID_SEQUENCE_NUMBER);
                 continue;
             }
 
@@ -462,8 +578,8 @@ public class CafMessageHandler {
      * @param message The message to broadcast.
      */
     public void broadcastClientMessage(String type, String message) {
-        for (String clientId : mRouteProvider.getClients()) {
-            sendEnclosedMessageToClient(clientId, type, message, INVALID_SEQUENCE_NUMBER);
+        for (String clientId : mRouteProvider.getClientIdToRecords().keySet()) {
+            sendEnclosedMessageToClient(clientId, type, message, VOID_SEQUENCE_NUMBER);
         }
     }
 
@@ -485,8 +601,8 @@ public class CafMessageHandler {
 
             JSONObject json = new JSONObject();
             json.put("type", "receiver_action");
-            json.put("sequenceNumber", -1);
-            json.put("timeoutMillis", 0);
+            json.put("sequenceNumber", VOID_SEQUENCE_NUMBER);
+            json.put("timeoutMillis", TIMEOUT_IMMEDIATE);
             json.put("clientId", clientId);
             json.put("message", jsonReceiverAction);
 
@@ -516,7 +632,7 @@ public class CafMessageHandler {
         try {
             json.put("type", type);
             json.put("sequenceNumber", sequenceNumber);
-            json.put("timeoutMillis", 0);
+            json.put("timeoutMillis", TIMEOUT_IMMEDIATE);
             json.put("clientId", clientId);
 
             // TODO(mlamouri): we should have a more reliable way to handle string, null and Object

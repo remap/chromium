@@ -20,6 +20,7 @@ class NGPaintFragment;
 class NGPhysicalFragment;
 struct NGBaseline;
 struct NGInlineNodeData;
+struct NGPhysicalOffset;
 
 // This mixin holds code shared between LayoutNG subclasses of
 // LayoutBlockFlow.
@@ -59,7 +60,6 @@ class LayoutNGMixin : public Base {
   scoped_refptr<NGLayoutResult> CachedLayoutResult(
       const NGConstraintSpace&,
       NGBreakToken*) const override;
-  const NGConstraintSpace* CachedConstraintSpace() const override;
 
   void SetCachedLayoutResult(const NGConstraintSpace&,
                              NGBreakToken*,
@@ -71,10 +71,12 @@ class LayoutNGMixin : public Base {
     return paint_fragment_.get();
   }
   void SetPaintFragment(const NGBreakToken*,
-                        scoped_refptr<const NGPhysicalFragment>) final;
+                        scoped_refptr<const NGPhysicalFragment>,
+                        NGPhysicalOffset) final;
   void UpdatePaintFragmentFromCachedLayoutResult(
       const NGBreakToken*,
-      scoped_refptr<const NGPhysicalFragment>) final;
+      scoped_refptr<const NGPhysicalFragment>,
+      NGPhysicalOffset) final;
 
  protected:
   bool IsOfType(LayoutObject::LayoutObjectType) const override;
@@ -84,7 +86,7 @@ class LayoutNGMixin : public Base {
  private:
   void AddScrollingOverflowFromChildren();
   void SetPaintFragment(NGPaintFragment* last_paint_fragment,
-                        std::unique_ptr<NGPaintFragment>);
+                        scoped_refptr<NGPaintFragment>);
 
  protected:
   void AddOutlineRects(
@@ -99,8 +101,7 @@ class LayoutNGMixin : public Base {
   std::unique_ptr<NGInlineNodeData> ng_inline_node_data_;
 
   scoped_refptr<NGLayoutResult> cached_result_;
-  scoped_refptr<const NGConstraintSpace> cached_constraint_space_;
-  std::unique_ptr<NGPaintFragment> paint_fragment_;
+  scoped_refptr<NGPaintFragment> paint_fragment_;
 
   friend class NGBaseLayoutAlgorithmTest;
 };

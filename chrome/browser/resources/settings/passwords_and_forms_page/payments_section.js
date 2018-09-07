@@ -41,6 +41,11 @@ class PaymentsManager {
    * @param {!PaymentsManager.CreditCardEntry} creditCard
    */
   saveCreditCard(creditCard) {}
+
+  /**
+   * Migrate the local credit cards.
+   */
+  migrateCreditCards() {}
 }
 
 /** @typedef {chrome.autofillPrivate.CreditCardEntry} */
@@ -80,6 +85,11 @@ class PaymentsManagerImpl {
   saveCreditCard(creditCard) {
     chrome.autofillPrivate.saveCreditCard(creditCard);
   }
+
+  /** @override */
+  migrateCreditCards() {
+    chrome.autofillPrivate.migrateCreditCards();
+  }
 }
 
 cr.addSingletonGetter(PaymentsManagerImpl);
@@ -92,6 +102,7 @@ Polymer({
 
   behaviors: [
     WebUIListenerBehavior,
+    I18nBehavior,
   ],
 
   properties: {
@@ -110,13 +121,41 @@ Polymer({
     /** @private */
     showCreditCardDialog_: Boolean,
 
+    /** @private */
+    migrateCreditCardsLabel_: String,
+
+    /** @private */
+    migratableCreditCardsInfo_: String,
+
     /**
      * The current sync status, supplied by SyncBrowserProxy.
-     * TODO(sujiezhu): Use this to check migration requirements when all
-     * information is ready. (https://crbug.com/852904).
      * @type {?settings.SyncStatus}
      */
     syncStatus: Object,
+
+    /**
+     * Whether migration local card on settings page is enabled.
+     * @private
+     */
+    migrationEnabled_: {
+      type: Boolean,
+      value: function() {
+        return loadTimeData.getBoolean('migrationEnabled');
+      },
+      readOnly: true,
+    },
+
+    /**
+     * Whether user has a Google Payments account.
+     * @private
+     */
+    hasGooglePaymentsAccount_: {
+      type: Boolean,
+      value: function() {
+        return loadTimeData.getBoolean('hasGooglePaymentsAccount');
+      },
+      readOnly: true,
+    },
   },
 
   listeners: {
@@ -285,6 +324,14 @@ Polymer({
   },
 
   /**
+   * Handles clicking on the "Migrate" button for migrate local credit cards.
+   * @private
+   */
+  onMigrateCreditCardsClick_: function() {
+    this.paymentsManager_.migrateCreditCards();
+  },
+
+  /**
    * The 3-dot menu should not be shown if the card is entirely remote.
    * @param {!chrome.autofillPrivate.AutofillMetadata} metadata
    * @return {boolean}
@@ -332,5 +379,55 @@ Polymer({
   handleSyncStatus_: function(syncStatus) {
     this.syncStatus = syncStatus;
   },
+
+  /**
+   * @param {!settings.SyncStatus} syncStatus
+   * @param {!Array<!PaymentsManager.CreditCardEntry>} creditCards
+   * @param {boolean} autofillEnabled
+   * @param {boolean} creditCardEnabled
+   * @return {boolean} Whether to show the migration button. True iff at least
+   * one valid local card, enable migration, signed-in & synced and both prefs
+   * enabled.
+   * @private
+   */
+  checkIfMigratable_: function(
+      syncStatus, creditCards, autofillEnabled, creditCardEnabled) {
+    if (syncStatus == undefined)
+      return false;
+
+    // If user not enable migration experimental flag, return false.
+    if (!this.migrationEnabled_)
+      return false;
+
+    // If user does not have Google Payments Account, return false.
+    if (!this.hasGooglePaymentsAccount_)
+      return false;
+
+    if (this.eitherIsDisabled_(autofillEnabled, creditCardEnabled))
+      return false;
+
+    // If user not signed-in and synced, return false.
+    if (!syncStatus.signedIn || !syncStatus.syncSystemEnabled)
+      return false;
+
+    let numberOfMigratableCreditCard =
+        creditCards.filter(card => card.metadata.isMigratable).length;
+    // Check whether exist at least one local valid card for migration.
+    if (numberOfMigratableCreditCard == 0)
+      return false;
+
+    // Update the display label depends on the number of migratable credit
+    // cards.
+    this.migrateCreditCardsLabel_ = numberOfMigratableCreditCard == 1 ?
+        this.i18n('migrateCreditCardsLabelSingle') :
+        this.i18n('migrateCreditCardsLabelMultiple');
+    // Update the display text depends on the number of migratable credit cards.
+    this.migratableCreditCardsInfo_ = numberOfMigratableCreditCard == 1 ?
+        this.i18n('migratableCardsInfoSingle') :
+        this.i18n('migratableCardsInfoMultiple');
+
+    return true;
+  },
+
 });
 })();

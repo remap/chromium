@@ -78,7 +78,7 @@
 #include "extensions/common/host_id.h"
 #include "mash/public/mojom/launchable.mojom.h"
 #include "media/audio/sounds/sounds_manager.h"
-#include "media/base/media_switches.h"
+#include "services/media_session/public/cpp/switches.h"
 #include "services/service_manager/public/cpp/connector.h"
 #include "ui/accessibility/ax_enum_util.h"
 #include "ui/base/ime/chromeos/extension_ime_util.h"
@@ -103,6 +103,9 @@ constexpr char kAshDisableSystemSounds[] = "ash-disable-system-sounds";
 
 // A key for the spoken feedback enabled boolean state for a known user.
 const char kUserSpokenFeedbackEnabled[] = "UserSpokenFeedbackEnabled";
+
+// A key for the startup sound enabled boolean state for a known user.
+const char kUserStartupSoundEnabled[] = "UserStartupSoundEnabled";
 
 static chromeos::AccessibilityManager* g_accessibility_manager = nullptr;
 
@@ -903,6 +906,11 @@ void AccessibilityManager::OnActiveOutputNodeChanged() {
   if (device.type == AudioDeviceType::AUDIO_TYPE_OTHER)
     return;
 
+  if (GetStartupSoundEnabled()) {
+    PlayEarcon(SOUND_STARTUP, PlaySoundOption::ALWAYS);
+    return;
+  }
+
   const auto& account_ids = user_manager::known_user::GetKnownAccountIds();
   for (size_t i = 0; i < account_ids.size(); ++i) {
     bool val;
@@ -1236,9 +1244,9 @@ void AccessibilityManager::PostLoadChromeVox() {
   }
 
   if (!base::CommandLine::ForCurrentProcess()->HasSwitch(
-          ::switches::kEnableAudioFocus)) {
+          media_session::switches::kEnableAudioFocus)) {
     base::CommandLine::ForCurrentProcess()->AppendSwitch(
-        ::switches::kEnableAudioFocus);
+        media_session::switches::kEnableAudioFocus);
   }
 }
 
@@ -1370,6 +1378,29 @@ void AccessibilityManager::SetCaretBounds(const gfx::Rect& bounds_in_screen) {
 
   if (caret_bounds_observer_for_test_)
     caret_bounds_observer_for_test_.Run(bounds_in_screen);
+}
+
+bool AccessibilityManager::GetStartupSoundEnabled() const {
+  user_manager::UserManager* user_manager = user_manager::UserManager::Get();
+  const user_manager::UserList& user_list = user_manager->GetUsers();
+  if (user_list.empty())
+    return false;
+
+  // |user_list| is sorted by last log in date. Take the most recent user to log
+  // in.
+  bool val;
+  return user_manager::known_user::GetBooleanPref(
+             user_list[0]->GetAccountId(), kUserStartupSoundEnabled, &val) &&
+         val;
+}
+
+void AccessibilityManager::SetStartupSoundEnabled(bool value) const {
+  if (!profile_)
+    return;
+
+  user_manager::known_user::SetBooleanPref(
+      multi_user_util::GetAccountIdFromProfile(profile_),
+      kUserStartupSoundEnabled, value);
 }
 
 void AccessibilityManager::SetProfileForTest(Profile* profile) {

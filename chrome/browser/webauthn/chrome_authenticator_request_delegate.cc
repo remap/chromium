@@ -123,15 +123,37 @@ content::BrowserContext* ChromeAuthenticatorRequestDelegate::browser_context()
       ->GetBrowserContext();
 }
 
+void ChromeAuthenticatorRequestDelegate::DidFailWithInterestingReason(
+    InterestingFailureReason reason) {
+  if (!weak_dialog_model_)
+    return;
+
+  switch (reason) {
+    case InterestingFailureReason::kTimeout:
+      weak_dialog_model_->OnRequestTimeout();
+      break;
+    case InterestingFailureReason::kKeyNotRegistered:
+      weak_dialog_model_->OnActivatedKeyNotRegistered();
+      break;
+    case InterestingFailureReason::kKeyAlreadyRegistered:
+      weak_dialog_model_->OnActivatedKeyAlreadyRegistered();
+      break;
+  }
+}
+
 void ChromeAuthenticatorRequestDelegate::RegisterActionCallbacks(
     base::OnceClosure cancel_callback,
-    device::FidoRequestHandlerBase::RequestCallback request_callback) {
+    device::FidoRequestHandlerBase::RequestCallback request_callback,
+    base::RepeatingClosure bluetooth_adapter_power_on_callback) {
   request_callback_ = request_callback;
   cancel_callback_ = std::move(cancel_callback);
 
   transient_dialog_model_holder_ =
       std::make_unique<AuthenticatorRequestDialogModel>();
   transient_dialog_model_holder_->SetRequestCallback(request_callback);
+  transient_dialog_model_holder_->SetBluetoothAdapterPowerOnCallback(
+      bluetooth_adapter_power_on_callback);
+
   weak_dialog_model_ = transient_dialog_model_holder_.get();
   weak_dialog_model_->AddObserver(this);
 }
@@ -298,6 +320,13 @@ void ChromeAuthenticatorRequestDelegate::FidoAuthenticatorRemoved(
       saved_authenticators.end());
 }
 
+void ChromeAuthenticatorRequestDelegate::BluetoothAdapterPowerChanged(
+    bool is_powered_on) {
+  if (!weak_dialog_model_)
+    return;
+
+  weak_dialog_model_->OnBluetoothPoweredStateChanged(is_powered_on);
+}
 void ChromeAuthenticatorRequestDelegate::OnModelDestroyed() {
   DCHECK(weak_dialog_model_);
   weak_dialog_model_ = nullptr;

@@ -134,7 +134,7 @@ void LayoutNGMixin<Base>::AddScrollingOverflowFromChildren() {
       } else {
         continue;
       }
-      child_scrollable_overflow.offset += child->Offset();
+      child_scrollable_overflow.offset += child.Offset();
       children_overflow.Unite(child_scrollable_overflow);
     }
   }
@@ -214,13 +214,15 @@ scoped_refptr<NGLayoutResult> LayoutNGMixin<Base>::CachedLayoutResult(
     NGBreakToken* break_token) const {
   if (!RuntimeEnabledFeatures::LayoutNGFragmentCachingEnabled())
     return nullptr;
-  if (!cached_result_ || break_token || Base::NeedsLayout())
+  if (!cached_result_ || !Base::cached_constraint_space_ || break_token ||
+      Base::NeedsLayout())
     return nullptr;
-  if (constraint_space != *cached_constraint_space_)
+  if (constraint_space != *Base::cached_constraint_space_)
     return nullptr;
   // The checks above should be enough to bail if layout is incomplete, but
   // let's verify:
-  DCHECK(IsBlockLayoutComplete(*cached_constraint_space_, *cached_result_));
+  DCHECK(
+      IsBlockLayoutComplete(*Base::cached_constraint_space_, *cached_result_));
   // If we used to contain abspos items, we can't reuse the fragment, because
   // we can't be sure that the list of items hasn't changed (as we bubble them
   // up during layout). In the case of newly-added abspos items to this
@@ -230,11 +232,6 @@ scoped_refptr<NGLayoutResult> LayoutNGMixin<Base>::CachedLayoutResult(
   if (cached_result_->OutOfFlowPositionedDescendants().size())
     return nullptr;
   return cached_result_->CloneWithoutOffset();
-}
-
-template <typename Base>
-const NGConstraintSpace* LayoutNGMixin<Base>::CachedConstraintSpace() const {
-  return cached_constraint_space_.get();
 }
 
 template <typename Base>
@@ -249,7 +246,7 @@ void LayoutNGMixin<Base>::SetCachedLayoutResult(
   if (constraint_space.IsIntermediateLayout())
     return;
 
-  cached_constraint_space_ = &constraint_space;
+  Base::cached_constraint_space_ = &constraint_space;
   cached_result_ = layout_result;
 }
 
@@ -262,7 +259,7 @@ LayoutNGMixin<Base>::CachedLayoutResultForTesting() {
 template <typename Base>
 void LayoutNGMixin<Base>::SetPaintFragment(
     NGPaintFragment* last_paint_fragment,
-    std::unique_ptr<NGPaintFragment> paint_fragment) {
+    scoped_refptr<NGPaintFragment> paint_fragment) {
   if (paint_fragment) {
     // When paint fragment is replaced, the subtree needs paint invalidation to
     // re-compute paint properties in NGPaintFragment.
@@ -279,7 +276,8 @@ void LayoutNGMixin<Base>::SetPaintFragment(
 template <typename Base>
 void LayoutNGMixin<Base>::SetPaintFragment(
     const NGBreakToken* break_token,
-    scoped_refptr<const NGPhysicalFragment> fragment) {
+    scoped_refptr<const NGPhysicalFragment> fragment,
+    NGPhysicalOffset offset) {
   // TODO(kojii): There are cases where the first call has break_token.
   // Investigate why and handle appropriately.
   // DCHECK(!break_token || paint_fragment_);
@@ -293,14 +291,16 @@ void LayoutNGMixin<Base>::SetPaintFragment(
       last_paint_fragment = paint_fragment_->Last();
     DCHECK(last_paint_fragment);
   }
-  SetPaintFragment(last_paint_fragment,
-                   fragment ? NGPaintFragment::Create(fragment) : nullptr);
+  SetPaintFragment(
+      last_paint_fragment,
+      fragment ? NGPaintFragment::Create(fragment, offset) : nullptr);
 }
 
 template <typename Base>
 void LayoutNGMixin<Base>::UpdatePaintFragmentFromCachedLayoutResult(
     const NGBreakToken* break_token,
-    scoped_refptr<const NGPhysicalFragment> fragment) {
+    scoped_refptr<const NGPhysicalFragment> fragment,
+    NGPhysicalOffset fragment_offset) {
   DCHECK(fragment);
   // TODO(kojii): There are cases where the first call has break_token.
   // Investigate why and handle appropriately.
@@ -321,8 +321,9 @@ void LayoutNGMixin<Base>::UpdatePaintFragmentFromCachedLayoutResult(
   }
 
   if (!paint_fragment) {
-    SetPaintFragment(last_paint_fragment,
-                     NGPaintFragment::Create(std::move(fragment)));
+    SetPaintFragment(
+        last_paint_fragment,
+        NGPaintFragment::Create(std::move(fragment), fragment_offset));
     return;
   }
 

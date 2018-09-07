@@ -72,7 +72,7 @@ class TestSheetView : public AuthenticatorRequestSheetView {
  public:
   explicit TestSheetView(std::unique_ptr<TestSheetModel> model)
       : AuthenticatorRequestSheetView(std::move(model)) {
-    InitChildViews();
+    ReInitChildViews();
   }
 
   ~TestSheetView() override = default;
@@ -104,7 +104,7 @@ class AuthenticatorDialogViewTest : public DialogBrowserTest {
 
     auto dialog_model = std::make_unique<AuthenticatorRequestDialogModel>();
     dialog_model->SetCurrentStep(
-        AuthenticatorRequestDialogModel::Step::kErrorTimedOut);
+        AuthenticatorRequestDialogModel::Step::kPostMortemTimedOut);
     auto dialog = std::make_unique<AuthenticatorRequestDialogView>(
         web_contents, std::move(dialog_model));
 

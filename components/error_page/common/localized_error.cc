@@ -1085,6 +1085,10 @@ void LocalizedError::GetStrings(
                                IDS_ERRORPAGES_BUTTON_DOWNLOADING)));
   }
 
+  error_strings->SetString(
+      "closeDescriptionPopup",
+      l10n_util::GetStringUTF16(IDS_ERRORPAGES_SUGGESTION_CLOSE_POPUP_BUTTON));
+
   if (IsOfflineError(error_domain, error_code) && !is_incognito) {
     switch (offline_content_feature_state) {
       case OfflineContentOnNetErrorFeatureState::kDisabled:
@@ -1092,10 +1096,25 @@ void LocalizedError::GetStrings(
       case OfflineContentOnNetErrorFeatureState::kEnabledList:
         error_strings->SetString("suggestedOfflineContentPresentationMode",
                                  "list");
+        error_strings->SetPath({"offlineContentList", "title"},
+                               base::Value(l10n_util::GetStringUTF16(
+                                   IDS_ERRORPAGES_OFFLINE_CONTENT_LIST_TITLE)));
+        error_strings->SetPath(
+            {"offlineContentList", "actionText"},
+            base::Value(l10n_util::GetStringUTF16(
+                IDS_ERRORPAGES_OFFLINE_CONTENT_LIST_OPEN_ALL_BUTTON)));
         break;
       case OfflineContentOnNetErrorFeatureState::kEnabledSummary:
         error_strings->SetString("suggestedOfflineContentPresentationMode",
                                  "summary");
+        error_strings->SetPath(
+            {"offlineContentSummary", "description"},
+            base::Value(l10n_util::GetStringUTF16(
+                IDS_ERRORPAGES_OFFLINE_CONTENT_SUMMARY_DESCRIPTION)));
+        error_strings->SetPath(
+            {"offlineContentSummary", "actionText"},
+            base::Value(l10n_util::GetStringUTF16(
+                IDS_ERRORPAGES_OFFLINE_CONTENT_SUMMARY_BUTTON)));
         break;
     }
   }

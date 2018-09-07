@@ -369,10 +369,6 @@ void Ui::CancelPlatformToast() {
   model_->platform_toast.reset();
 }
 
-bool Ui::ShouldRenderWebVr() {
-  return model_->web_vr.presenting_web_vr();
-}
-
 void Ui::OnGlInitialized(unsigned int content_texture_id,
                          GlTextureLocation content_location,
                          unsigned int content_overlay_texture_id,
@@ -485,15 +481,6 @@ void Ui::OnContentBoundsChanged(int width, int height) {
   content_input_delegate_->SetSize(width, height);
 }
 
-bool Ui::IsControllerVisible() const {
-  UiElement* controller_group = scene_->GetUiElementByName(kControllerGroup);
-  return controller_group && controller_group->GetTargetOpacity() > 0.0f;
-}
-
-bool Ui::SkipsRedrawWhenNotDirty() const {
-  return model_->skips_redraw_when_not_dirty;
-}
-
 void Ui::Dump(bool include_bindings) {
 #ifndef NDEBUG
   std::ostringstream os;
@@ -579,6 +566,8 @@ void Ui::InitializeModel(const UiInitialState& ui_initial_state) {
   model_->needs_keyboard_update = ui_initial_state.needs_keyboard_update;
   model_->standalone_vr_device = ui_initial_state.is_standalone_vr_device;
   model_->create_tabs_view = ui_initial_state.create_tabs_view;
+  model_->use_new_incognito_strings =
+      ui_initial_state.use_new_incognito_strings;
 }
 
 void Ui::AcceptDoffPromptForTesting() {

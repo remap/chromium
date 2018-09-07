@@ -46,6 +46,7 @@
 #include "content/public/browser/overscroll_configuration.h"
 #include "content/test/mock_overscroll_controller_delegate_aura.h"
 #include "ui/aura/window_tree_host.h"
+#include "ui/events/event_rewriter.h"
 #endif
 
 #if defined(OS_MACOSX)
@@ -648,6 +649,34 @@ class SetMouseCaptureInterceptor
   DISALLOW_COPY_AND_ASSIGN(SetMouseCaptureInterceptor);
 };
 
+#if defined(USE_AURA)
+// A class to allow intercepting and discarding of system-level mouse events
+// that might otherwise cause unpredictable behaviour in tests.
+class MouseEventRewriter : public ui::EventRewriter {
+ public:
+  MouseEventRewriter() = default;
+  ~MouseEventRewriter() override {}
+
+ private:
+  ui::EventRewriteStatus RewriteEvent(
+      const ui::Event& event,
+      std::unique_ptr<ui::Event>* new_event) override {
+    if (event.IsMouseEvent())
+      return ui::EVENT_REWRITE_DISCARD;
+    return ui::EVENT_REWRITE_CONTINUE;
+  }
+
+  ui::EventRewriteStatus NextDispatchEvent(
+      const ui::Event& event,
+      std::unique_ptr<ui::Event>* new_event) override {
+    NOTREACHED();
+    return ui::EVENT_REWRITE_CONTINUE;
+  }
+
+  DISALLOW_COPY_AND_ASSIGN(MouseEventRewriter);
+};
+#endif
+
 }  // namespace
 
 class SitePerProcessHitTestBrowserTest
@@ -655,6 +684,19 @@ class SitePerProcessHitTestBrowserTest
       public SitePerProcessBrowserTest {
  public:
   SitePerProcessHitTestBrowserTest() {}
+
+#if defined(USE_AURA)
+  void PreRunTestOnMainThread() override {
+    SitePerProcessBrowserTest::PreRunTestOnMainThread();
+    // Disable system mouse events, which can interfere with tests.
+    shell()->window()->GetHost()->AddEventRewriter(&event_rewriter);
+  }
+
+  void PostRunTestOnMainThread() override {
+    shell()->window()->GetHost()->RemoveEventRewriter(&event_rewriter);
+    SitePerProcessBrowserTest::PostRunTestOnMainThread();
+  }
+#endif
 
  protected:
   void SetUpCommandLine(base::CommandLine* command_line) override {
@@ -671,6 +713,9 @@ class SitePerProcessHitTestBrowserTest
   }
 
   base::test::ScopedFeatureList feature_list_;
+#if defined(USE_AURA)
+  MouseEventRewriter event_rewriter;
+#endif
 };
 
 //
@@ -1121,14 +1166,6 @@ IN_PROC_BROWSER_TEST_P(SitePerProcessHitTestBrowserTest,
   scroll_end_observer.Wait();
 }
 
-#if defined(OS_LINUX)
-// The test is flaky on Linux:  https://crbug.com/833380.
-#define MAYBE_BubbledScrollEventsTransformedCorrectly \
-  DISABLED_BubbledScrollEventsTransformedCorrectly
-#else
-#define MAYBE_BubbledScrollEventsTransformedCorrectly \
-  BubbledScrollEventsTransformedCorrectly
-#endif
 // When a scroll event is bubbled, ensure that the bubbled event's coordinates
 // are correctly updated to the ancestor's coordinate space. In particular,
 // ensure that the transformation considers CSS scaling of the child where
@@ -1136,7 +1173,7 @@ IN_PROC_BROWSER_TEST_P(SitePerProcessHitTestBrowserTest,
 // coordinates in the ancestor's coordinate space.
 // See https://crbug.com/817392
 IN_PROC_BROWSER_TEST_P(SitePerProcessHitTestBrowserTest,
-                       MAYBE_BubbledScrollEventsTransformedCorrectly) {
+                       BubbledScrollEventsTransformedCorrectly) {
   GURL main_url(embedded_test_server()->GetURL(
       "/frame_tree/page_with_positioned_scaled_frame.html"));
   ASSERT_TRUE(NavigateToURL(shell(), main_url));
@@ -2014,19 +2051,13 @@ IN_PROC_BROWSER_TEST_P(SitePerProcessHighDPIHitTestBrowserTest,
   PerspectiveTransformedSurfaceHitTestHelper(shell(), embedded_test_server());
 }
 
-#if defined(OS_LINUX)
-// Flaky timeouts and failures: https://crbug.com/833380
-#define MAYBE_OverlapSurfaceHitTestTest DISABLED_OverlapSurfaceHitTestTest
-#else
-#define MAYBE_OverlapSurfaceHitTestTest OverlapSurfaceHitTestTest
-#endif
 IN_PROC_BROWSER_TEST_P(SitePerProcessHighDPIHitTestBrowserTest,
-                       MAYBE_OverlapSurfaceHitTestTest) {
+                       OverlapSurfaceHitTestTest) {
   OverlapSurfaceHitTestHelper(shell(), embedded_test_server());
 }
 
 IN_PROC_BROWSER_TEST_P(SitePerProcessHitTestBrowserTest,
-                       MAYBE_OverlapSurfaceHitTestTest) {
+                       OverlapSurfaceHitTestTest) {
   OverlapSurfaceHitTestHelper(shell(), embedded_test_server());
 }
 
@@ -3212,9 +3243,9 @@ IN_PROC_BROWSER_TEST_P(SitePerProcessHitTestBrowserTest,
   // will trigger kTouchActionNone being sent back to the browser.
   RenderWidgetHostImpl* child_render_widget_host =
       root->child_at(0)->current_frame_host()->GetRenderWidgetHost();
-  EXPECT_EQ(true, child_render_widget_host->input_router()
-                      ->AllowedTouchAction()
-                      .has_value());
+  EXPECT_FALSE(child_render_widget_host->input_router()
+                   ->AllowedTouchAction()
+                   .has_value());
 
   InputEventAckWaiter waiter(child_render_widget_host,
                              blink::WebInputEvent::kTouchStart);
@@ -3288,8 +3319,7 @@ IN_PROC_BROWSER_TEST_P(SitePerProcessHitTestBrowserTest,
   // browser.
   RenderWidgetHostImpl* render_widget_host =
       root->current_frame_host()->GetRenderWidgetHost();
-  EXPECT_EQ(
-      true,
+  EXPECT_FALSE(
       render_widget_host->input_router()->AllowedTouchAction().has_value());
 
   // Simulate touch event to sub-frame.

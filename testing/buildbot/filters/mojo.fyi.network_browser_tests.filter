@@ -61,9 +61,6 @@
 -NetInternalsTest.netInternalsTimelineViewZoomOut
 -NetInternalsTest.netInternalsTourTabs
 
-# https://crbug.com/721398
--WebViewTest.ClearDataCache
-
 # https://crbug.com/853256
 -ClientHintsBrowserTest.ClientHintsLifetimeNotAttachedCookiesBlocked/0
 -ClientHintsBrowserTest.ClientHintsLifetimeNotAttachedCookiesBlocked/1
@@ -136,14 +133,6 @@
 # https://crbug.com/773295
 # Remove this test when there are no more clients left that use URLFetcher.
 -VariationsHttpHeadersBrowserTest.TestStrippingHeadersFromInternalRequest
-
-# Tests check state of NQE in the browser process, but need to be updated to
-# watch NQE in the renderer process.
-# https://crbug.com/819244
--IOThreadEctCommandLineBrowserTest.ForceECTFromCommandLine
--IOThreadEctFieldTrialAndCommandLineBrowserTest.ECTFromCommandLineOverridesFieldTrial
--IOThreadEctFieldTrialBrowserTest.ForceECTUsingFieldTrial
-
 
 # Channel ID is not hooked up to the network service yet.
 # https://crbug.com/840412

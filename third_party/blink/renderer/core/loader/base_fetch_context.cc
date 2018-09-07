@@ -193,6 +193,12 @@ void BaseFetchContext::AddInfoConsoleMessage(const String& message,
       ConvertLogSourceToMessageSource(source), kInfoMessageLevel, message));
 }
 
+void BaseFetchContext::AddWarningConsoleMessage(const String& message,
+                                                LogSource source) const {
+  AddConsoleMessage(ConsoleMessage::Create(
+      ConvertLogSourceToMessageSource(source), kWarningMessageLevel, message));
+}
+
 void BaseFetchContext::AddErrorConsoleMessage(const String& message,
                                               LogSource source) const {
   AddConsoleMessage(ConsoleMessage::Create(
@@ -384,7 +390,8 @@ BaseFetchContext::CanRequestInternal(
 
   // Loading of a subresource may be blocked by previews resource loading hints.
   if (GetPreviewsResourceLoadingHints() &&
-      !GetPreviewsResourceLoadingHints()->AllowLoad(url)) {
+      !GetPreviewsResourceLoadingHints()->AllowLoad(
+          url, resource_request.Priority())) {
     // TODO (tbansal): https://crbug.com/864253. Add a specific reason for why
     // the resource fetch was blocked.
     return ResourceRequestBlockedReason::kOther;

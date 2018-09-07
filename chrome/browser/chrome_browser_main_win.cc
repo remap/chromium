@@ -530,7 +530,8 @@ void ChromeBrowserMainPartsWin::PostProfileInit() {
   // What truly controls if the blocking is enabled is the presence of the
   // module blacklist cache file. This means that to disable the feature, the
   // cache must be deleted and the browser relaunched.
-  if (!ModuleDatabase::IsThirdPartyBlockingPolicyEnabled() ||
+  if (base::win::IsEnterpriseManaged() ||
+      !ModuleDatabase::IsThirdPartyBlockingPolicyEnabled() ||
       !base::FeatureList::IsEnabled(features::kThirdPartyModulesBlocking))
     ThirdPartyConflictsManager::DisableThirdPartyModuleBlocking(
         base::CreateTaskRunnerWithTraits(
@@ -673,9 +674,8 @@ int ChromeBrowserMainPartsWin::HandleIconsCommands(
 
 // static
 bool ChromeBrowserMainPartsWin::CheckMachineLevelInstall() {
-  BrowserDistribution* dist = BrowserDistribution::GetDistribution();
-  base::Version version;
-  InstallUtil::GetChromeVersion(dist, true, &version);
+  base::Version version =
+      InstallUtil::GetChromeVersion(true /* system_install */);
   if (version.IsValid()) {
     base::FilePath exe_path;
     base::PathService::Get(base::DIR_EXE, &exe_path);

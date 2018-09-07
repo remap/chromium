@@ -311,15 +311,22 @@ const base::Feature kHappinessTrackingSystem {
 #endif
 
 #if !defined(OS_ANDROID)
+// Enables or disables the Happiness Tracking System for Desktop Chrome.
+const base::Feature kHappinessTrackingSurveysForDesktop{
+    "HappinessTrackingSurveysForDesktop", base::FEATURE_DISABLED_BY_DEFAULT};
+#endif  // !defined(OS_ANDROID)
+
+#if !defined(OS_ANDROID)
 // Replaces the WebUI Cast dialog with a Views toolkit one.
 const base::Feature kViewsCastDialog{"ViewsCastDialog",
                                      base::FEATURE_DISABLED_BY_DEFAULT};
 #endif  // !defined(OS_ANDROID)
 
-// Enables navigation suggestions for internationalized domain names that are
-// visually similar to popular domains.
-const base::Feature kIdnNavigationSuggestions{
-    "IdnNavigationSuggestions", base::FEATURE_DISABLED_BY_DEFAULT};
+// Enables navigation suggestions for lookalike URLs (e.g. internationalized
+// domain names that are visually similar to popular domains or to domains with
+// engagement score, such as googlé.com).
+const base::Feature kLookalikeUrlNavigationSuggestions{
+    "LookalikeUrlNavigationSuggestions", base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Controls whether the "improved recovery component" is used. The improved
 // recovery component is a redesigned Chrome component intended to restore
@@ -434,7 +441,7 @@ const base::Feature kOomIntervention{"OomIntervention",
 // TODO(https://crbug.com/862774): Remove this after the feature is fully
 // launched.
 const base::Feature kOobeRecommendAppsScreen{"OobeRecommendAppsScreen",
-                                             base::FEATURE_DISABLED_BY_DEFAULT};
+                                             base::FEATURE_ENABLED_BY_DEFAULT};
 #endif
 
 // Adds the base language code to the Language-Accept headers if at least one

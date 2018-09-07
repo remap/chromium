@@ -640,8 +640,7 @@ class CONTENT_EXPORT RenderFrameImpl
   void DidCreateDocumentLoader(
       blink::WebDocumentLoader* document_loader) override;
   void DidStartProvisionalLoad(blink::WebDocumentLoader* document_loader,
-                               blink::WebURLRequest& request,
-                               base::TimeTicks input_start) override;
+                               blink::WebURLRequest& request) override;
   void DidFailProvisionalLoad(const blink::WebURLError& error,
                               blink::WebHistoryCommitType commit_type) override;
   void DidCommitProvisionalLoad(
@@ -1147,14 +1146,12 @@ class CONTENT_EXPORT RenderFrameImpl
       std::unique_ptr<blink::WebDocumentLoader::ExtraData> navigation_data);
   void LoadNavigationErrorPageInternal(
       const std::string& error_html,
-      const GURL& error_page_url,
       const GURL& error_url,
       bool replace,
-      blink::WebFrameLoadType frame_load_type,
-      const blink::WebHistoryItem& history_item,
+      HistoryEntry* history_entry,
       std::unique_ptr<blink::WebNavigationParams> navigation_params,
       std::unique_ptr<blink::WebDocumentLoader::ExtraData> navigation_data,
-      const blink::WebURLRequest& failed_request);
+      const blink::WebURLRequest* failed_request);
 
   void HandleJavascriptExecutionResult(const base::string16& javascript,
                                        int id,
@@ -1596,6 +1593,7 @@ class CONTENT_EXPORT RenderFrameImpl
     blink::WebSourceLocation source_location;
     blink::WebString devtools_initiator_info;
     blink::mojom::BlobURLTokenPtr blob_url_token;
+    base::TimeTicks input_start;
 
     explicit PendingNavigationInfo(const NavigationPolicyInfo& info);
     ~PendingNavigationInfo();

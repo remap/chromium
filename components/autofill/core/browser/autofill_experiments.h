@@ -22,14 +22,6 @@ class SyncService;
 
 namespace autofill {
 
-// Boolean Features
-
-extern const base::Feature kAutofillExpandedPopupViews;
-extern const base::Feature kAutofillScanCardholderName;
-extern const base::Feature kAutofillUpstream;
-extern const base::Feature kAutofillUpstreamAllowAllEmailDomains;
-extern const base::Feature kAutofillUpstreamUpdatePromptExplanation;
-
 // Parameterized Features (grouped with parameter name and options)
 #if !defined(OS_ANDROID)
 extern const base::Feature kAutofillDropdownLayoutExperiment;
@@ -50,6 +42,13 @@ bool IsCreditCardUploadEnabled(const PrefService* pref_service,
 // still want to run detection code for metrics purposes. This experiment just
 // disables providing suggestions.
 bool IsInAutofillSuggestionsDisabledExperiment();
+
+// Returns whether the Autofill credit card assist infobar should be shown.
+bool IsAutofillCreditCardAssistEnabled();
+
+// Returns whether locally saving card when credit card upload succeeds should
+// be disabled.
+bool IsAutofillNoLocalSaveOnUploadSuccessExperimentEnabled();
 
 // Returns true if the user should be offered to locally store unmasked cards.
 // This controls whether the option is presented at all rather than the default

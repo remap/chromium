@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "base/macros.h"
+#include "base/optional.h"
 #include "base/strings/string16.h"
 #include "base/strings/string_piece.h"
 #include "components/omnibox/browser/autocomplete_match.h"
@@ -134,7 +135,7 @@ class SearchSuggestionParser {
                   const base::string16& match_contents,
                   const base::string16& match_contents_prefix,
                   const base::string16& annotation,
-                  const std::string& suggest_query_params,
+                  const std::string& additional_query_params,
                   const std::string& deletion_url,
                   const std::string& image_dominant_color,
                   const std::string& image_url,
@@ -153,16 +154,16 @@ class SearchSuggestionParser {
       return match_contents_prefix_;
     }
     const base::string16& annotation() const { return annotation_; }
-    const std::string& suggest_query_params() const {
-      return suggest_query_params_;
+    const std::string& additional_query_params() const {
+      return additional_query_params_;
     }
 
     void SetAnswer(const base::string16& answer_contents,
                    const base::string16& answer_type,
-                   std::unique_ptr<SuggestionAnswer> answer);
+                   const SuggestionAnswer& answer);
     const base::string16& answer_contents() const { return answer_contents_; }
     const base::string16& answer_type() const { return answer_type_; }
-    const SuggestionAnswer* answer() const { return answer_.get(); }
+    const base::Optional<SuggestionAnswer>& answer() const { return answer_; }
 
     const std::string& image_dominant_color() const {
       return image_dominant_color_;
@@ -198,7 +199,7 @@ class SearchSuggestionParser {
     base::string16 annotation_;
 
     // Optional additional parameters to be added to the search URL.
-    std::string suggest_query_params_;
+    std::string additional_query_params_;
 
     // TODO(jdonnelly): Remove the following two properties once the downstream
     // clients are using the SuggestionAnswer.
@@ -209,7 +210,7 @@ class SearchSuggestionParser {
     base::string16 answer_type_;
 
     // Optional short answer to the input that produced this suggestion.
-    std::unique_ptr<SuggestionAnswer> answer_;
+    base::Optional<SuggestionAnswer> answer_;
 
     // Optional image information. Used for entity suggestions. The dominant
     // color can be used to paint the image placeholder while fetching the

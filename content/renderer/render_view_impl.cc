@@ -929,30 +929,64 @@ void RenderView::ApplyWebPreferences(const WebPreferences& prefs,
       case net::EFFECTIVE_CONNECTION_TYPE_UNKNOWN:
         settings->SetLazyFrameLoadingDistanceThresholdPxUnknown(
             ect_distance_pair.second);
-        break;
+        continue;
       case net::EFFECTIVE_CONNECTION_TYPE_OFFLINE:
         settings->SetLazyFrameLoadingDistanceThresholdPxOffline(
             ect_distance_pair.second);
-        break;
+        continue;
       case net::EFFECTIVE_CONNECTION_TYPE_SLOW_2G:
         settings->SetLazyFrameLoadingDistanceThresholdPxSlow2G(
             ect_distance_pair.second);
-        break;
+        continue;
       case net::EFFECTIVE_CONNECTION_TYPE_2G:
         settings->SetLazyFrameLoadingDistanceThresholdPx2G(
             ect_distance_pair.second);
-        break;
+        continue;
       case net::EFFECTIVE_CONNECTION_TYPE_3G:
         settings->SetLazyFrameLoadingDistanceThresholdPx3G(
             ect_distance_pair.second);
-        break;
+        continue;
       case net::EFFECTIVE_CONNECTION_TYPE_4G:
         settings->SetLazyFrameLoadingDistanceThresholdPx4G(
             ect_distance_pair.second);
-        break;
-      default:
-        NOTREACHED();
+        continue;
+      case net::EFFECTIVE_CONNECTION_TYPE_LAST:
+        continue;
     }
+    NOTREACHED();
+  }
+
+  for (const auto& ect_distance_pair :
+       prefs.lazy_image_loading_distance_thresholds_px) {
+    switch (ect_distance_pair.first) {
+      case net::EFFECTIVE_CONNECTION_TYPE_UNKNOWN:
+        settings->SetLazyImageLoadingDistanceThresholdPxUnknown(
+            ect_distance_pair.second);
+        continue;
+      case net::EFFECTIVE_CONNECTION_TYPE_OFFLINE:
+        settings->SetLazyImageLoadingDistanceThresholdPxOffline(
+            ect_distance_pair.second);
+        continue;
+      case net::EFFECTIVE_CONNECTION_TYPE_SLOW_2G:
+        settings->SetLazyImageLoadingDistanceThresholdPxSlow2G(
+            ect_distance_pair.second);
+        continue;
+      case net::EFFECTIVE_CONNECTION_TYPE_2G:
+        settings->SetLazyImageLoadingDistanceThresholdPx2G(
+            ect_distance_pair.second);
+        continue;
+      case net::EFFECTIVE_CONNECTION_TYPE_3G:
+        settings->SetLazyImageLoadingDistanceThresholdPx3G(
+            ect_distance_pair.second);
+        continue;
+      case net::EFFECTIVE_CONNECTION_TYPE_4G:
+        settings->SetLazyImageLoadingDistanceThresholdPx4G(
+            ect_distance_pair.second);
+        continue;
+      case net::EFFECTIVE_CONNECTION_TYPE_LAST:
+        continue;
+    }
+    NOTREACHED();
   }
 
 #if defined(OS_MACOSX)
@@ -963,6 +997,13 @@ void RenderView::ApplyWebPreferences(const WebPreferences& prefs,
 #if defined(OS_WIN)
   WebRuntimeFeatures::EnableMiddleClickAutoscroll(true);
 #endif
+
+  // Only enable href translate if we have the experimental web platform
+  // flag on and the translation service is available.
+  if (base::CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kEnableExperimentalWebPlatformFeatures)) {
+    WebRuntimeFeatures::EnableHrefTranslate(prefs.translate_service_available);
+  }
 }
 
 /*static*/

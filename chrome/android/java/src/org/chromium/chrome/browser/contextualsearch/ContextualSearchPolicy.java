@@ -145,7 +145,9 @@ class ContextualSearchPolicy {
             return false;
         }
 
-        return isPromoAvailable() || mContextualSearchPreferenceHelper.canThrottle()
+        return (isPromoAvailable()
+                       || (mContextualSearchPreferenceHelper != null
+                                  && mContextualSearchPreferenceHelper.canThrottle()))
                 ? isBasePageHTTP(mNetworkCommunicator.getBasePageUrl())
                 : true;
     }
@@ -383,6 +385,12 @@ class ContextualSearchPolicy {
     int getTapCount() {
         return mPreferenceManager.readInt(
                 ChromePreferenceManager.CONTEXTUAL_SEARCH_TAP_SINCE_OPEN_COUNT);
+    }
+
+    @VisibleForTesting
+    void applyUnifiedConsentGivenMetadata(
+            @ContextualSearchPreviousPreferenceMetadata int metadata) {
+        mContextualSearchPreferenceHelper.applyUnifiedConsentGivenMetadata(metadata);
     }
 
     // --------------------------------------------------------------------------------------------

@@ -132,7 +132,6 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/content_switches.h"
 #include "ui/accessibility/ax_node_data.h"
-#include "ui/aura/client/aura_constants.h"
 #include "ui/base/accelerators/accelerator.h"
 #include "ui/base/hit_test.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -160,6 +159,7 @@
 
 #if defined(OS_CHROMEOS)
 #include "chrome/browser/ui/ash/ash_util.h"
+#include "chrome/browser/ui/ash/window_properties.h"
 #include "chrome/browser/ui/views/location_bar/intent_picker_view.h"
 #else
 #include "chrome/browser/ui/signin_view_controller.h"
@@ -292,6 +292,31 @@ bool GetGestureCommand(ui::GestureEvent* event, int* command) {
 #endif  // OS_MACOSX
   return false;
 }
+
+// A view targeter for the overlay view, which makes sure the overlay view
+// itself is never a target for events, but its children (i.e. top_container)
+// may be.
+class OverlayViewTargeterDelegate : public views::ViewTargeterDelegate {
+ public:
+  OverlayViewTargeterDelegate() = default;
+  ~OverlayViewTargeterDelegate() override = default;
+
+  bool DoesIntersectRect(const views::View* target,
+                         const gfx::Rect& rect) const override {
+    for (int i = 0; i < target->child_count(); ++i) {
+      gfx::RectF child_rect(rect);
+      views::View::ConvertRectToTarget(target, target->child_at(i),
+                                       &child_rect);
+      if (target->child_at(i)->HitTestRect(gfx::ToEnclosingRect(child_rect)))
+        return true;
+    }
+
+    return false;
+  }
+
+ private:
+  DISALLOW_COPY_AND_ASSIGN(OverlayViewTargeterDelegate);
+};
 
 }  // namespace
 
@@ -1155,8 +1180,10 @@ void BrowserView::RotatePaneFocus(bool forwards) {
 
 void BrowserView::DestroyBrowser() {
 #if defined(OS_WIN) || (defined(OS_LINUX) && !defined(OS_CHROMEOS))
-  GetWidget()->GetNativeView()->RemovePreTargetHandler(
-      QuitInstructionBubbleController::GetInstance());
+  if (browser_->SupportsWindowFeature(Browser::FEATURE_TOOLBAR)) {
+    GetWidget()->GetNativeView()->RemovePreTargetHandler(
+        QuitInstructionBubbleController::GetInstance());
+  }
 #endif
 
   // After this returns other parts of Chrome are going to be shutdown. Close
@@ -1802,6 +1829,12 @@ int BrowserView::GetBottomInsetOfLocationBarWithinToolbar() const {
          2;
 }
 
+void BrowserView::ReparentTopContainerForEndOfImmersive() {
+  overlay_view_->SetVisible(false);
+  top_container()->DestroyLayer();
+  AddChildViewAt(top_container(), GetIndexOf(contents_container_) + 1);
+}
+
 views::View* BrowserView::GetInitiallyFocusedView() {
   return nullptr;
 }
@@ -1836,18 +1869,15 @@ gfx::ImageSkia BrowserView::GetWindowIcon() {
     return app_controller->GetWindowIcon();
 
 #if defined(OS_CHROMEOS)
+  ui::ResourceBundle& rb = ui::ResourceBundle::GetSharedInstance();
   if (browser_->is_type_tabbed()) {
-    ui::ResourceBundle& rb = ui::ResourceBundle::GetSharedInstance();
     return rb.GetImageNamed(IDR_PRODUCT_LOGO_32).AsImageSkia();
   }
-
-  // For the settings window, use whatever icon was previously set.
-  if (!browser_->is_app() && browser_->is_trusted_source() &&
-      GetNativeWindow()) {
-    auto* image = GetNativeWindow()->GetProperty(aura::client::kWindowIconKey);
-    if (image)
-      return *image;
-  }
+  auto* window = GetNativeWindow();
+  int override_window_icon_resource_id =
+      window ? window->GetProperty(kOverrideWindowIconResourceIdKey) : -1;
+  if (override_window_icon_resource_id >= 0)
+    return rb.GetImageNamed(override_window_icon_resource_id).AsImageSkia();
 #endif
 
   if (browser_->is_app() || browser_->is_type_popup())
@@ -1942,6 +1972,15 @@ views::View* BrowserView::GetContentsView() {
 
 views::ClientView* BrowserView::CreateClientView(views::Widget* widget) {
   return this;
+}
+
+views::View* BrowserView::CreateOverlayView() {
+  overlay_view_ = new views::View();
+  overlay_view_->SetVisible(false);
+  overlay_view_targeter_ = std::make_unique<OverlayViewTargeterDelegate>();
+  overlay_view_->SetEventTargeter(
+      std::make_unique<views::ViewTargeter>(overlay_view_targeter_.get()));
+  return overlay_view_;
 }
 
 void BrowserView::OnWidgetDestroying(views::Widget* widget) {
@@ -2262,8 +2301,10 @@ void BrowserView::InitViews() {
                                        browser_->profile());
 
 #if defined(OS_WIN) || (defined(OS_LINUX) && !defined(OS_CHROMEOS))
-  GetWidget()->GetNativeView()->AddPreTargetHandler(
-      QuitInstructionBubbleController::GetInstance());
+  if (browser_->SupportsWindowFeature(Browser::FEATURE_TOOLBAR)) {
+    GetWidget()->GetNativeView()->AddPreTargetHandler(
+        QuitInstructionBubbleController::GetInstance());
+  }
 #endif
 
 #if defined(USE_AURA)
@@ -2328,6 +2369,7 @@ void BrowserView::InitViews() {
   AddChildView(find_bar_host_view_);
 
   immersive_mode_controller_->Init(this);
+  immersive_mode_controller_->AddObserver(this);
 
   auto browser_view_layout = std::make_unique<BrowserViewLayout>();
   browser_view_layout->Init(new BrowserViewLayoutDelegateImpl(this),
@@ -2451,13 +2493,8 @@ void BrowserView::SetBookmarkBarParent(views::View* new_parent) {
   if (new_parent == this) {
     // BookmarkBarView is detached.
     views::View* target_view = top_container_;
-#if !defined(OS_CHROMEOS)
-    // CrOS immersive mode needs to show the rest of the top chrome
-    // in front of the detached bookmark bar, since the detached
-    // bar is styled to look like it's part of the NTP web content.
     if (ui::MaterialDesignController::IsRefreshUi())
       target_view = infobar_container_;
-#endif
     const int target_index = GetIndexOf(target_view);
     DCHECK_GE(target_index, 0);
     // |top_container_| contains the toolbar, so putting the bookmark bar ahead
@@ -2946,4 +2983,29 @@ BrowserView::GetActiveTabPermissionGranter() {
     return nullptr;
   return extensions::TabHelper::FromWebContents(web_contents)
       ->active_tab_permission_granter();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// BrowserView, ImmersiveModeController::Observer implementation:
+void BrowserView::OnImmersiveRevealStarted() {
+  top_container()->SetPaintToLayer();
+  top_container()->layer()->SetFillsBoundsOpaquely(false);
+  overlay_view_->AddChildView(top_container());
+  overlay_view_->SetVisible(true);
+  InvalidateLayout();
+  GetWidget()->GetRootView()->Layout();
+}
+
+void BrowserView::OnImmersiveRevealEnded() {
+  ReparentTopContainerForEndOfImmersive();
+  InvalidateLayout();
+  GetWidget()->GetRootView()->Layout();
+}
+
+void BrowserView::OnImmersiveFullscreenExited() {
+  OnImmersiveRevealEnded();
+}
+
+void BrowserView::OnImmersiveModeControllerDestroyed() {
+  ReparentTopContainerForEndOfImmersive();
 }

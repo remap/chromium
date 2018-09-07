@@ -4,9 +4,12 @@
 
 #include "ash/assistant/ui/main_stage/assistant_main_stage.h"
 
+#include <algorithm>
+
 #include "ash/assistant/assistant_controller.h"
 #include "ash/assistant/assistant_interaction_controller.h"
 #include "ash/assistant/assistant_ui_controller.h"
+#include "ash/assistant/model/assistant_query.h"
 #include "ash/assistant/ui/assistant_ui_constants.h"
 #include "ash/assistant/ui/main_stage/assistant_footer_view.h"
 #include "ash/assistant/ui/main_stage/assistant_header_view.h"
@@ -544,14 +547,25 @@ void AssistantMainStage::OnUiVisibilityChanged(
                  kGreetingAnimationFadeInDelay),
              CreateOpacityElement(1.f, kGreetingAnimationFadeInDuration))});
 
-    // Animate the footer from 0% to 100% opacity with delay.
+    // Set up our pre-animation values.
     footer_->layer()->SetOpacity(0.f);
-    footer_->layer()->GetAnimator()->StartAnimation(
-        CreateLayerAnimationSequence(
-            ui::LayerAnimationElement::CreatePauseElement(
-                ui::LayerAnimationElement::AnimatableProperty::OPACITY,
-                kFooterEntryAnimationFadeInDelay),
-            CreateOpacityElement(1.f, kFooterEntryAnimationFadeInDuration)));
+
+    const AssistantQuery& pending_query =
+        assistant_controller_->interaction_controller()
+            ->model()
+            ->pending_query();
+
+    // We only animate in the footer when a pending query is absent. Otherwise
+    // the footer should be hidden to make room for the pending query view.
+    if (pending_query.type() == AssistantQueryType::kNull) {
+      // Animate the footer to 100% opacity with delay.
+      footer_->layer()->GetAnimator()->StartAnimation(
+          CreateLayerAnimationSequence(
+              ui::LayerAnimationElement::CreatePauseElement(
+                  ui::LayerAnimationElement::AnimatableProperty::OPACITY,
+                  kFooterEntryAnimationFadeInDelay),
+              CreateOpacityElement(1.f, kFooterEntryAnimationFadeInDuration)));
+    }
 
     return;
   }
@@ -634,6 +648,9 @@ void AssistantMainStage::UpdateFooter() {
   // When it is not visible, it should not process events.
   bool visible = !committed_query_view_ && !pending_query_view_;
 
+  // Reset visibility to enable animation.
+  footer_->SetVisible(true);
+
   if (visible) {
     // The footer will animate up into position so we need to set an initial
     // offset transformation from which to animate.
@@ -685,8 +702,9 @@ bool AssistantMainStage::OnFooterAnimationEnded(
     const ui::CallbackLayerAnimationObserver& observer) {
   // The footer should only process events when visible. It is only visible when
   // there is no committed or pending query view.
-  footer_->set_can_process_events_within_subtree(!committed_query_view_ &&
-                                                 !pending_query_view_);
+  bool visible = !committed_query_view_ && !pending_query_view_;
+  footer_->set_can_process_events_within_subtree(visible);
+  footer_->SetVisible(visible);
 
   // Return false so that the observer does not destroy itself.
   return false;

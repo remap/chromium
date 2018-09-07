@@ -7,16 +7,23 @@
 #include "ui/base/hit_test.h"
 #include "ui/base/ime/input_method.h"
 #include "ui/base/ime/input_method_factory.h"
+#include "ui/base/models/dialog_model.h"
 #include "ui/compositor/recyclable_compositor_mac.h"
 #include "ui/display/screen.h"
 #include "ui/gfx/geometry/dip_util.h"
 #include "ui/views/cocoa/bridged_native_widget.h"
+#include "ui/views/controls/menu/menu_config.h"
+#include "ui/views/controls/menu/menu_controller.h"
 #include "ui/views/views_delegate.h"
 #include "ui/views/widget/native_widget_mac.h"
 #include "ui/views/widget/widget_aura_utils.h"
 #include "ui/views/widget/widget_delegate.h"
+#include "ui/views/window/dialog_client_view.h"
 #include "ui/views/window/dialog_delegate.h"
 #include "ui/views/word_lookup_client.h"
+
+using views_bridge_mac::mojom::BridgedNativeWidgetInitParams;
+using views_bridge_mac::mojom::WindowVisibilityState;
 
 namespace views {
 
@@ -50,7 +57,8 @@ BridgedNativeWidgetHostImpl::~BridgedNativeWidgetHostImpl() {
   DestroyCompositor();
 }
 
-BridgedNativeWidgetPublic* BridgedNativeWidgetHostImpl::bridge() const {
+views_bridge_mac::mojom::BridgedNativeWidget*
+BridgedNativeWidgetHostImpl::bridge() const {
   return bridge_impl_.get();
 }
 
@@ -64,10 +72,10 @@ void BridgedNativeWidgetHostImpl::InitWindow(const Widget::InitParams& params) {
 
   // Initialize the window.
   {
-    BridgedNativeWidgetPublic::InitParams bridge_params;
-    bridge_params.modal_type =
+    auto bridge_params = BridgedNativeWidgetInitParams::New();
+    bridge_params->modal_type =
         native_widget_mac_->GetWidget()->widget_delegate()->GetModalType();
-    bridge_params.is_translucent_window =
+    bridge_params->is_translucent =
         params.opacity == Widget::InitParams::TRANSLUCENT_WINDOW;
 
     // OSX likes to put shadows on most things. However, frameless windows (with
@@ -76,25 +84,25 @@ void BridgedNativeWidgetHostImpl::InitWindow(const Widget::InitParams& params) {
     // Mac.
     switch (params.shadow_type) {
       case Widget::InitParams::SHADOW_TYPE_NONE:
-        bridge_params.has_shadow = false;
+        bridge_params->has_window_server_shadow = false;
         break;
       case Widget::InitParams::SHADOW_TYPE_DEFAULT:
         // Controls should get views shadows instead of native shadows.
-        bridge_params.has_shadow =
+        bridge_params->has_window_server_shadow =
             params.type != Widget::InitParams::TYPE_CONTROL;
         break;
       case Widget::InitParams::SHADOW_TYPE_DROP:
-        bridge_params.has_shadow = true;
+        bridge_params->has_window_server_shadow = true;
         break;
     }  // No default case, to pick up new types.
 
     // Include "regular" windows without the standard frame in the window cycle.
     // These use NSBorderlessWindowMask so do not get it by default.
-    bridge_params.force_into_collection_cycle =
+    bridge_params->force_into_collection_cycle =
         widget_type_ == Widget::InitParams::TYPE_WINDOW &&
         params.remove_standard_frame;
 
-    bridge()->InitWindow(bridge_params);
+    bridge()->InitWindow(std::move(bridge_params));
   }
 
   // Set a meaningful initial bounds. Note that except for frameless widgets
@@ -109,7 +117,7 @@ void BridgedNativeWidgetHostImpl::InitWindow(const Widget::InitParams& params) {
 
   // Widgets for UI controls (usually layered above web contents) start visible.
   if (widget_type_ == Widget::InitParams::TYPE_CONTROL)
-    bridge()->SetVisibilityState(BridgedNativeWidgetPublic::SHOW_INACTIVE);
+    bridge()->SetVisibilityState(WindowVisibilityState::kShowInactive);
 }
 
 void BridgedNativeWidgetHostImpl::SetBounds(const gfx::Rect& bounds) {
@@ -262,6 +270,10 @@ gfx::Rect BridgedNativeWidgetHostImpl::GetRestoredBounds() const {
 ////////////////////////////////////////////////////////////////////////////////
 // BridgedNativeWidgetHostImpl, views::BridgedNativeWidgetHost:
 
+NSView* BridgedNativeWidgetHostImpl::GetNativeViewAccessible() {
+  return root_view_ ? root_view_->GetNativeViewAccessible() : nil;
+}
+
 void BridgedNativeWidgetHostImpl::OnVisibilityChanged(bool window_visible) {
   is_visible_ = window_visible;
   if (compositor_) {
@@ -293,6 +305,38 @@ void BridgedNativeWidgetHostImpl::OnGestureEvent(
     const ui::GestureEvent& const_event) {
   ui::GestureEvent event = const_event;
   root_view_->GetWidget()->OnGestureEvent(&event);
+}
+
+void BridgedNativeWidgetHostImpl::DispatchKeyEvent(
+    const ui::KeyEvent& const_event,
+    bool* event_handled) {
+  ui::KeyEvent event = const_event;
+  ignore_result(
+      root_view_->GetWidget()->GetInputMethod()->DispatchKeyEvent(&event));
+  *event_handled = event.handled();
+}
+
+void BridgedNativeWidgetHostImpl::DispatchKeyEventToMenuController(
+    const ui::KeyEvent& const_event,
+    bool* event_swallowed,
+    bool* event_handled) {
+  ui::KeyEvent event = const_event;
+  MenuController* menu_controller = MenuController::GetActiveInstance();
+  if (menu_controller && root_view_ &&
+      menu_controller->owner() == root_view_->GetWidget()) {
+    *event_swallowed = menu_controller->OnWillDispatchKeyEvent(&event) ==
+                       ui::POST_DISPATCH_NONE;
+  } else {
+    *event_swallowed = false;
+  }
+  *event_handled = event.handled();
+}
+
+void BridgedNativeWidgetHostImpl::GetHasMenuController(
+    bool* has_menu_controller) {
+  MenuController* menu_controller = MenuController::GetActiveInstance();
+  *has_menu_controller = menu_controller && root_view_ &&
+                         menu_controller->owner() == root_view_->GetWidget();
 }
 
 void BridgedNativeWidgetHostImpl::SetViewSize(const gfx::Size& new_size) {
@@ -372,6 +416,14 @@ void BridgedNativeWidgetHostImpl::GetWordAt(
 
 void BridgedNativeWidgetHostImpl::GetWidgetIsModal(bool* widget_is_modal) {
   *widget_is_modal = native_widget_mac_->GetWidget()->IsModal();
+}
+
+void BridgedNativeWidgetHostImpl::GetIsFocusedViewTextual(bool* is_textual) {
+  views::FocusManager* focus_manager =
+      root_view_ ? root_view_->GetWidget()->GetFocusManager() : nullptr;
+  *is_textual = focus_manager && focus_manager->GetFocusedView() &&
+                focus_manager->GetFocusedView()->GetClassName() ==
+                    views::Label::kViewClassName;
 }
 
 void BridgedNativeWidgetHostImpl::OnWindowGeometryChanged(
@@ -474,6 +526,43 @@ void BridgedNativeWidgetHostImpl::OnWindowKeyStatusChanged(
       widget->GetFocusManager()->StoreFocusedView(true);
     }
   }
+}
+
+void BridgedNativeWidgetHostImpl::DoDialogButtonAction(
+    ui::DialogButton button) {
+  views::DialogDelegate* dialog =
+      root_view_->GetWidget()->widget_delegate()->AsDialogDelegate();
+  DCHECK(dialog);
+  views::DialogClientView* client = dialog->GetDialogClientView();
+  if (button == ui::DIALOG_BUTTON_OK) {
+    client->AcceptWindow();
+  } else {
+    DCHECK_EQ(button, ui::DIALOG_BUTTON_CANCEL);
+    client->CancelWindow();
+  }
+}
+
+void BridgedNativeWidgetHostImpl::GetDialogButtonInfo(
+    ui::DialogButton button,
+    bool* button_exists,
+    base::string16* button_label,
+    bool* is_button_enabled,
+    bool* is_button_default) {
+  *button_exists = false;
+  ui::DialogModel* model =
+      root_view_->GetWidget()->widget_delegate()->AsDialogDelegate();
+  if (!model || !(model->GetDialogButtons() & button))
+    return;
+  *button_exists = true;
+  *button_label = model->GetDialogButtonLabel(button);
+  *is_button_enabled = model->IsDialogButtonEnabled(button);
+  *is_button_default = button == model->GetDefaultDialogButton();
+}
+
+void BridgedNativeWidgetHostImpl::GetDoDialogButtonsExist(bool* buttons_exist) {
+  ui::DialogModel* model =
+      root_view_->GetWidget()->widget_delegate()->AsDialogDelegate();
+  *buttons_exist = model && model->GetDialogButtons();
 }
 
 ////////////////////////////////////////////////////////////////////////////////

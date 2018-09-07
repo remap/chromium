@@ -15,9 +15,6 @@
 #import "base/mac/sdk_forward_declarations.h"
 #include "base/single_thread_task_runner.h"
 #include "base/strings/sys_string_conversions.h"
-#include "components/viz/common/features.h"
-#include "components/viz/common/surfaces/local_surface_id.h"
-#include "ui/accelerated_widget_mac/window_resize_helper_mac.h"
 #import "ui/base/cocoa/constrained_window/constrained_window_animation.h"
 #include "ui/base/hit_test.h"
 #include "ui/base/layout.h"
@@ -36,10 +33,10 @@
 #include "ui/views/cocoa/tooltip_manager_mac.h"
 #import "ui/views/cocoa/views_nswindow_delegate.h"
 #import "ui/views/cocoa/widget_owner_nswindow_adapter.h"
-#include "ui/views/view.h"
 #include "ui/views/widget/native_widget_mac.h"
 #include "ui/views/widget/widget.h"
-#include "ui/views/widget/widget_delegate.h"
+
+using views_bridge_mac::mojom::WindowVisibilityState;
 
 namespace {
 constexpr auto kUIPaintTimeout = base::TimeDelta::FromSeconds(5);
@@ -301,9 +298,10 @@ void BridgedNativeWidget::SetParent(NSView* new_parent) {
                                  NSWindowCollectionBehaviorTransient];
 }
 
-void BridgedNativeWidget::InitWindow(const InitParams& params) {
-  modal_type_ = params.modal_type;
-  is_translucent_window_ = params.is_translucent_window;
+void BridgedNativeWidget::InitWindow(
+    views_bridge_mac::mojom::BridgedNativeWidgetInitParamsPtr params) {
+  modal_type_ = params->modal_type;
+  is_translucent_window_ = params->is_translucent;
 
   // Register for application hide notifications so that visibility can be
   // properly tracked. This is not done in the delegate so that the lifetime is
@@ -330,13 +328,13 @@ void BridgedNativeWidget::InitWindow(const InitParams& params) {
 
   // Include "regular" windows without the standard frame in the window cycle.
   // These use NSBorderlessWindowMask so do not get it by default.
-  if (params.force_into_collection_cycle) {
+  if (params->force_into_collection_cycle) {
     [window_
         setCollectionBehavior:[window_ collectionBehavior] |
                               NSWindowCollectionBehaviorParticipatesInCycle];
   }
 
-  [window_ setHasShadow:params.has_shadow];
+  [window_ setHasShadow:params->has_window_server_shadow];
   tooltip_manager_.reset(new TooltipManagerMac(this));
 }
 
@@ -406,15 +404,13 @@ void BridgedNativeWidget::DestroyContentView() {
   [window_ setContentView:nil];
 }
 
-void BridgedNativeWidget::CreateContentView(views::View* view) {
+void BridgedNativeWidget::CreateContentView(const gfx::Rect& bounds) {
   DCHECK(!bridged_view_);
-  DCHECK(view);
   // The compositor needs to point at the new content view created here.
   DCHECK(!compositor_superview_);
 
   bridged_view_.reset(
-      [[BridgedContentView alloc] initWithBridge:this view:view]);
-  drag_drop_client_.reset(new DragDropClientMac(this, view));
+      [[BridgedContentView alloc] initWithBridge:this bounds:bounds]);
 
   // Objective C initializers can return nil. However, if |view| is non-NULL
   // this should be treated as an error and caught early.
@@ -425,6 +421,10 @@ void BridgedNativeWidget::CreateContentView(views::View* view) {
   [bridged_view_ setWantsLayer:YES];
 
   [window_ setContentView:bridged_view_];
+}
+
+void BridgedNativeWidget::CreateDragDropClient(views::View* view) {
+  drag_drop_client_.reset(new DragDropClientMac(this, view));
 }
 
 void BridgedNativeWidget::CloseWindow() {
@@ -488,12 +488,12 @@ void BridgedNativeWidget::SetVisibilityState(WindowVisibilityState new_state) {
   //  - A parent changing visibility updates child window visibility.
   //    * But only when changed via this function - ignore changes via the
   //      NSWindow API, or changes propagating out from here.
-  wants_to_be_visible_ = new_state != HIDE_WINDOW;
+  wants_to_be_visible_ = new_state != WindowVisibilityState::kHideWindow;
 
   [show_animation_ stopAnimation];
   DCHECK(!show_animation_);
 
-  if (new_state == HIDE_WINDOW) {
+  if (new_state == WindowVisibilityState::kHideWindow) {
     // Calling -orderOut: on a window with an attached sheet encounters broken
     // AppKit behavior. The sheet effectively becomes "lost".
     // See http://crbug.com/667602. Alternatives: call -setAlphaValue:0 and
@@ -527,7 +527,7 @@ void BridgedNativeWidget::SetVisibilityState(WindowVisibilityState new_state) {
     return;
   }
 
-  if (new_state == SHOW_AND_ACTIVATE_WINDOW) {
+  if (new_state == WindowVisibilityState::kShowAndActivateWindow) {
     [window_ makeKeyAndOrderFront:nil];
     [NSApp activateIgnoringOtherApps:YES];
   } else {
@@ -729,7 +729,7 @@ void BridgedNativeWidget::ToggleDesiredFullscreenState(bool async) {
   // of relying on AppKit to do it, and not worry that OnVisibilityChanged()
   // won't be called for externally triggered fullscreen requests.
   if (!window_visible_)
-    SetVisibilityState(SHOW_INACTIVE);
+    SetVisibilityState(WindowVisibilityState::kShowInactive);
 
   // Enable fullscreen collection behavior because:
   // 1: -[NSWindow toggleFullscreen:] would otherwise be ignored,

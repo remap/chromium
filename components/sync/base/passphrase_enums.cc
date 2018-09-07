@@ -64,11 +64,13 @@ KeyDerivationMethod ProtoKeyDerivationMethodToEnum(
       return KeyDerivationMethod::PBKDF2_HMAC_SHA1_1003;
     case sync_pb::NigoriSpecifics::PBKDF2_HMAC_SHA1_1003:
       return KeyDerivationMethod::PBKDF2_HMAC_SHA1_1003;
+    case sync_pb::NigoriSpecifics::SCRYPT_8192_8_11_CONST_SALT:
+      return KeyDerivationMethod::SCRYPT_8192_8_11_CONST_SALT;
   }
 
   // We do not know about this value. It is likely a method added in a newer
   // version of Chrome.
-  return KeyDerivationMethod::UNKNOWN;
+  return KeyDerivationMethod::UNSUPPORTED;
 }
 
 sync_pb::NigoriSpecifics::KeyDerivationMethod EnumKeyDerivationMethodToProto(
@@ -76,7 +78,9 @@ sync_pb::NigoriSpecifics::KeyDerivationMethod EnumKeyDerivationMethodToProto(
   switch (method) {
     case KeyDerivationMethod::PBKDF2_HMAC_SHA1_1003:
       return sync_pb::NigoriSpecifics::PBKDF2_HMAC_SHA1_1003;
-    case KeyDerivationMethod::UNKNOWN:
+    case KeyDerivationMethod::SCRYPT_8192_8_11_CONST_SALT:
+      return sync_pb::NigoriSpecifics::SCRYPT_8192_8_11_CONST_SALT;
+    case KeyDerivationMethod::UNSUPPORTED:
       // This value does not have a counterpart in the protocol proto enum,
       // because it is just a client side abstraction.
       break;

@@ -25,6 +25,7 @@
 #include "third_party/blink/renderer/core/layout/svg/svg_resources.h"
 #include "third_party/blink/renderer/core/layout/svg/svg_resources_cache.h"
 #include "third_party/blink/renderer/core/page/page.h"
+#include "third_party/blink/renderer/core/page/scrolling/snap_coordinator.h"
 #include "third_party/blink/renderer/core/paint/clip_path_clipper.h"
 #include "third_party/blink/renderer/core/paint/compositing/composited_layer_mapping.h"
 #include "third_party/blink/renderer/core/paint/compositing/compositing_reason_finder.h"
@@ -62,7 +63,7 @@ void VisualViewportPaintPropertyTreeBuilder::Update(
 
   PaintPropertyTreeBuilderFragmentContext& context = full_context.fragments[0];
 
-  visual_viewport.UpdatePaintPropertyNodes(context);
+  visual_viewport.UpdatePaintPropertyNodesIfNeeded(context);
 
   context.current.transform = visual_viewport.GetScrollTranslationNode();
   context.absolute_position.transform =
@@ -1416,6 +1417,11 @@ void FragmentPaintPropertyTreeBuilder::UpdateScrollAndScrollTranslation() {
               box.StyleRef().OverscrollBehaviorX()),
           static_cast<OverscrollBehavior::OverscrollBehaviorType>(
               box.StyleRef().OverscrollBehaviorY()));
+
+      auto* snap_coordinator = box.GetDocument().GetSnapCoordinator();
+      if (snap_coordinator) {
+        state.snap_container_data = snap_coordinator->GetSnapContainerData(box);
+      }
 
       OnUpdate(properties_->UpdateScroll(*context_.current.scroll,
                                          std::move(state)));

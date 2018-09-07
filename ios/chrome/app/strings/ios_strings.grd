@@ -292,7 +292,7 @@ locale.  The strings in this file are specific to iOS.
         Zip Code
       </message>
       <message name="IDS_IOS_BANDWIDTH_MANAGEMENT_LEARN_URL" translateable="false">
-        https://support.google.com/chrome/answer/2392284?p=mobile_bandwidth&amp;hl=[GRITLANGCODE]
+        https://support.google.com/chrome/answer/2392284?p=mobile_bandwidth&amp;hl=[GRITLANGCODE]&amp;ios=1
       </message>
       <message name="IDS_IOS_BANDWIDTH_MANAGEMENT_SETTINGS" desc="Title for the bandwidth management panel in settings [Length: 30em] [iOS only]">
         Bandwidth
@@ -993,14 +993,6 @@ locale.  The strings in this file are specific to iOS.
       <message name="IDS_IOS_OPTIONS_DATA_USAGE_ONLY_WIFI" desc="Title for the option to only send usage data and/or preload webpages when on wifi. [Length: 20em] [iOS only]">
         Only on Wi-Fi
       </message>
-      <message name="IDS_IOS_OPTIONS_DO_NOT_TRACK_MOBILE" desc="Title for opening the setting for the 'Do Not Track' header. [Length: 15em]">
-        ‘Do Not Track’
-      </message>
-      <message name="IDS_IOS_OPTIONS_ENABLE_DO_NOT_TRACK_BUBBLE_TEXT_MOBILE" desc="The text of a confirmation dialog that confirms that the user want to send the 'Do Not Track' header">
-        Enabling ‘Do Not Track’ means that a request will be included with your browsing traffic. Any effect depends on whether a website responds to the request, and how the request is interpreted.
-
-For example, some websites may respond to this request by showing you ads that aren't based on other websites you've visited. Many websites will still collect and use your browsing data - for example to improve security, to provide content, services, ads and recommendations on their websites, and to generate reporting statistics. <ph name="BEGIN_LINK">BEGIN_LINK</ph>Learn more<ph name="END_LINK">END_LINK</ph>
-      </message>
       <message name="IDS_IOS_OPTIONS_ENABLE_HANDOFF_TO_OTHER_DEVICES" desc="Title for the option to enable Handoff. [Length: 20em] [iOS only]">
         Handoff
       </message>
@@ -1326,6 +1318,9 @@ Handoff must also be enabled in the General section of Settings, and your device
       </message>
       <message name="IDS_IOS_SETTINGS_USERNAME_COPY_MENU_ITEM" desc="Context menu item available on the username cell in the detailed view of a stored credential. The user can select it to copy the username to clipboard. [Length: should be one short word, is under 5em in English]">
         Copy
+      </message>
+      <message name="IDS_IOS_SETTINGS_PASSWORD_PLACEHOLDER_SEARCH" desc="The iOS placeholder for searching passwords in the saved list [Length: 30em] [iOS only]">
+        Search Passwords
       </message>
       <message name="IDS_IOS_SETTINGS_PASSWORD_COPY_BUTTON" desc="Button that the user can press to copy the password to clipboard. [Length: 12em]">
         Copy
@@ -1752,7 +1747,7 @@ Your data was encrypted with your sync passphrase on <ph name="TIME">$2<ex>Sept 
         Help
       </message>
       <message name="IDS_IOS_TOOLS_MENU_HELP_URL" translateable="false">
-        https://support.google.com/chrome/?p=chrome_help&amp;hl=[GRITLANGCODE]
+        https://support.google.com/chrome/?p=chrome_help&amp;hl=[GRITLANGCODE]&amp;ios=1
       </message>
       <message name="IDS_IOS_TOOLS_MENU_HISTORY" desc="The Tools menu item for opening the navigation history menu">
         History

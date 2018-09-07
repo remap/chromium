@@ -20,7 +20,6 @@
 #include "base/strings/stringprintf.h"
 #include "base/strings/sys_string_conversions.h"
 #include "base/sys_info.h"
-#include "components/autofill/core/browser/autofill_experiments.h"
 #include "components/autofill/core/common/autofill_features.h"
 #include "components/autofill/core/common/autofill_switches.h"
 #include "components/autofill/ios/browser/autofill_switches.h"
@@ -219,7 +218,7 @@ const flags_ui::FeatureEntry kFeatureEntries[] = {
     {"enable-autofill-credit-card-upload",
      flag_descriptions::kAutofillCreditCardUploadName,
      flag_descriptions::kAutofillCreditCardUploadDescription, flags_ui::kOsIos,
-     FEATURE_VALUE_TYPE(autofill::kAutofillUpstream)},
+     FEATURE_VALUE_TYPE(autofill::features::kAutofillUpstream)},
     {"enable-autofill-credit-card-downstream-google-pay-branding",
      flag_descriptions::kAutofillDownstreamUseGooglePayBrandingOniOSName,
      flag_descriptions::kAutofillDownstreamUseGooglePayBrandingOniOSDescription,
@@ -239,7 +238,8 @@ const flags_ui::FeatureEntry kFeatureEntries[] = {
      flag_descriptions::
          kEnableAutofillCreditCardUploadUpdatePromptExplanationDescription,
      flags_ui::kOsIos,
-     FEATURE_VALUE_TYPE(autofill::kAutofillUpstreamUpdatePromptExplanation)},
+     FEATURE_VALUE_TYPE(
+         autofill::features::kAutofillUpstreamUpdatePromptExplanation)},
     {"use-sync-sandbox", flag_descriptions::kSyncSandboxName,
      flag_descriptions::kSyncSandboxDescription, flags_ui::kOsIos,
      SINGLE_VALUE_TYPE_AND_VALUE(
@@ -373,6 +373,14 @@ const flags_ui::FeatureEntry kFeatureEntries[] = {
      flag_descriptions::kSyncStandaloneTransportName,
      flag_descriptions::kSyncStandaloneTransportDescription, flags_ui::kOsIos,
      FEATURE_VALUE_TYPE(switches::kSyncStandaloneTransport)},
+    {"sync-support-secondary-account",
+     flag_descriptions::kSyncSupportSecondaryAccountName,
+     flag_descriptions::kSyncSupportSecondaryAccountDescription,
+     flags_ui::kOsIos,
+     FEATURE_VALUE_TYPE(switches::kSyncSupportSecondaryAccount)},
+    {"out-of-web-fullscreen", flag_descriptions::kOutOfWebFullscreenName,
+     flag_descriptions::kOutOfWebFullscreenDescription, flags_ui::kOsIos,
+     FEATURE_VALUE_TYPE(web::features::kOutOfWebFullscreen)},
 };
 
 // Add all switches from experimental flags to |command_line|.

@@ -1794,10 +1794,13 @@
   <message name="IDS_OOBE_SCREEN_MAGNIFIER_OPTION" desc="Screen magnifier option shown on OOBE screens accessibility menu.">
     Screen magnifier
   </message>
-  <message name="IDS_SCREEN_MAGNIFIER_OPTION_OFF" desc="A value for Screen Magnifier Option accessibility option when it is off.">
+  <message name="IDS_OOBE_DOCKED_MAGNIFIER_OPTION" desc="Docked magnifier option shown on OOBE screens accessibility menu.">
+    Docked magnifier
+  </message>
+  <message name="IDS_SCREEN_MAGNIFIER_OPTION_OFF" desc="A value for Screen or Docked Magnifier Option accessibility option when it is off.">
     Off
   </message>
-  <message name="IDS_SCREEN_MAGNIFIER_OPTION_ON" desc="A value for Screen Magnifier Option accessibility option when it is on.">
+  <message name="IDS_SCREEN_MAGNIFIER_OPTION_ON" desc="A value for Screen or Docked Magnifier Option accessibility option when it is on.">
     On
   </message>
   <message name="IDS_OOBE_VIRTUAL_KEYBOARD_OPTION" desc="Virtual keyboard option shown on the OOBE screens accessibility menu.">
@@ -1953,14 +1956,32 @@
   <message name="IDS_LOGIN_RECOMMEND_APPS_SCREEN_ERROR" desc="Load error message of the Recommend Apps OOBE dialog.">
     The list of apps cannot be loaded. Please retry.
   </message>
-  <message name="IDS_LOGIN_APP_DOWNLOADING_SCREEN_TITLE" desc="The title of the dialog that tells the user the selected Android Apps are downloading.">
-    Apps downloading
+  <message name="IDS_LOGIN_APP_DOWNLOADING_SCREEN_TITLE_SINGULAR" desc="The title of the dialog that tells the user the selected Android App is downloading.">
+    We'll install that app for you
+  </message>
+  <message name="IDS_LOGIN_APP_DOWNLOADING_SCREEN_TITLE_PLURAL" desc="The title of the dialog that tells the user the selected Android Apps are downloading.">
+    We'll install those <ph name="NUMBER_OF_APPS">$1<ex>10</ex></ph> apps for you
   </message>
   <message name="IDS_LOGIN_APP_DOWNLOADING_SCREEN_DESCRIPTION" desc="The description of the 'App Downloading' section">
-    We’ll install those apps for you. You can find more apps for your device in the Play Store.
+    You can find more apps for your device in the Play Store.
   </message>
   <message name="IDS_LOGIN_APP_DOWNLOADING_CONTINUE_SETUP" desc="The label on the button that continues the setup flow.">
     Continue setup
+  </message>
+  <message name="IDS_LOGIN_MARKETING_OPT_IN_SCREEN_TITLE" desc="The title of the last dialog in the set of screens that are always displayed to the user on the first login to the Chrome OS device.">
+    One last thing
+  </message>
+  <message name="IDS_LOGIN_MARKETING_OPT_IN_SCREEN_SUBTITLE" desc="The sub-title of the dialog that allows user to opt-in into several Google marketing options.">
+    Get <ph name="DEVICE_TYPE">$1<ex>Chromebook</ex></ph> tips and updates on Google products and share feedback. Unsubscribe anytime.
+  </message>
+  <message name="IDS_LOGIN_MARKETING_OPT_IN_SCREEN_GET_PLAY_UPDATES" desc="A label next to the checkbox that controls user subscription to marketing updates from Google about Google Play Store.">
+    Get the lastest updates and recommendations on Play Store apps
+  </message>
+  <message name="IDS_LOGIN_MARKETING_OPT_IN_SCREEN_GET_CHROMEBOOK_UPDATES" desc="A lablel next to the checkbox that controls user subscription to marketing updates and useful information about the user's Chrome device.">
+    Tips and updates on <ph name="DEVICE_TYPE">$1<ex>Chromebook</ex></ph>
+  </message>
+  <message name="IDS_LOGIN_MARKETING_OPT_IN_SCREEN_ALL_SET" desc="A label on the button that closes the initial setup dialog, which suggests to the user that initial device setup is complete.">
+    All set
   </message>
   <message name="IDS_DISABLED_ADD_USER_TOOLTIP" desc="Tooltip over disabled Add user button">
     The owner of this device has disabled new users from being added

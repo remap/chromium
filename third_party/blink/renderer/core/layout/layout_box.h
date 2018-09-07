@@ -1461,7 +1461,25 @@ class CORE_EXPORT LayoutBox : public LayoutBoxModelObject {
     ClearPreferredLogicalWidthsDirty();
   }
 
+  // Calculates the intrinsic(https://drafts.csswg.org/css-sizing-3/#intrinsic)
+  // logical widths for this layout box.
+  //
+  // intrinsicWidth is defined as:
+  //     intrinsic size of content (without our border and padding) +
+  //     scrollbarWidth.
+  //
+  // preferredWidth is defined as:
+  //     fixedWidth OR (intrinsicWidth plus border and padding).
+  //     Note: fixedWidth includes border and padding and scrollbarWidth.
+  //
+  // This is public only for use by LayoutNG. Do not call this elsewhere.
+  virtual void ComputeIntrinsicLogicalWidths(
+      LayoutUnit& min_logical_width,
+      LayoutUnit& max_logical_width) const;
+
  protected:
+  ~LayoutBox() override;
+
   virtual bool ComputeShouldClipOverflow() const;
   virtual LayoutRect ControlClipRect(const LayoutPoint&) const {
     return LayoutRect();
@@ -1633,20 +1651,6 @@ class CORE_EXPORT LayoutBox : public LayoutBoxModelObject {
                                   LayoutUnit& margin_start,
                                   LayoutUnit& margin_end) const;
 
-  // Calculates the intrinsic(https://drafts.csswg.org/css-sizing-3/#intrinsic)
-  // logical widths for this layout box.
-  //
-  // intrinsicWidth is defined as:
-  //     intrinsic size of content (without our border and padding) +
-  //     scrollbarWidth.
-  //
-  // preferredWidth is defined as:
-  //     fixedWidth OR (intrinsicWidth plus border and padding).
-  //     Note: fixedWidth includes border and padding and scrollbarWidth.
-  virtual void ComputeIntrinsicLogicalWidths(
-      LayoutUnit& min_logical_width,
-      LayoutUnit& max_logical_width) const;
-
   LayoutBoxRareData& EnsureRareData() {
     if (!rare_data_)
       rare_data_ = std::make_unique<LayoutBoxRareData>();
@@ -1733,7 +1737,7 @@ class CORE_EXPORT LayoutBox : public LayoutBoxModelObject {
     // The first fragment of the inline box containing this LayoutBox, for
     // atomic inline elements. Valid only when
     // IsInLayoutNGInlineFormattingContext().
-    NGPaintFragment* first_paint_fragment_;
+    scoped_refptr<NGPaintFragment> first_paint_fragment_;
   };
 
   std::unique_ptr<LayoutBoxRareData> rare_data_;
@@ -1817,7 +1821,7 @@ inline void LayoutBox::SetInlineBoxWrapper(InlineBox* box_wrapper) {
 }
 
 inline NGPaintFragment* LayoutBox::FirstInlineFragment() const {
-  return IsInLayoutNGInlineFormattingContext() ? first_paint_fragment_
+  return IsInLayoutNGInlineFormattingContext() ? first_paint_fragment_.get()
                                                : nullptr;
 }
 

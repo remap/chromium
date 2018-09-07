@@ -219,7 +219,8 @@ void CreditCardSaveManager::OnDidUploadCard(
   // upload succeeds and we can store unmasked cards on this OS, we will keep a
   // copy of the card as a full server card on the device.
   if (result == AutofillClient::SUCCESS && !server_id.empty() &&
-      OfferStoreUnmaskedCards()) {
+      OfferStoreUnmaskedCards() &&
+      !IsAutofillNoLocalSaveOnUploadSuccessExperimentEnabled()) {
     upload_request_.card.set_record_type(CreditCard::FULL_SERVER_CARD);
     upload_request_.card.SetServerStatus(CreditCard::OK);
     upload_request_.card.set_server_id(server_id);
@@ -259,20 +260,21 @@ void CreditCardSaveManager::OnDidGetUploadDetails(
   } else {
     // If the upload details request failed and we *know* we have all possible
     // information (card number, expiration, cvc, name, and address), fall back
-    // to a local save. It indicates that "Payments doesn't want this card" or
-    // "Payments doesn't currently support this country", in which case the
-    // upload details request will consistently fail and if we don't fall back
-    // to a local save, the user will never be offered *any* kind of credit card
-    // save. (Note that this could intermittently backfire if there's a network
-    // breakdown or Payments outage, resulting in sometimes showing upload and
-    // sometimes offering local save, but such cases should be rare.)
+    // to a local save (for new cards only). It indicates that "Payments doesn't
+    // want this card" or "Payments doesn't currently support this country", in
+    // which case the upload details request will consistently fail and if we
+    // don't fall back to a local save, the user will never be offered *any*
+    // kind of credit card save. (Note that this could intermittently backfire
+    // if there's a network breakdown or Payments outage, resulting in sometimes
+    // showing upload and sometimes offering local save, but such cases should
+    // be rare.)
     int detected_values = GetDetectedValues();
     bool found_name_and_postal_code_and_cvc =
         (detected_values & DetectedValue::CARDHOLDER_NAME ||
          detected_values & DetectedValue::ADDRESS_NAME) &&
         detected_values & DetectedValue::POSTAL_CODE &&
         detected_values & DetectedValue::CVC;
-    if (found_name_and_postal_code_and_cvc)
+    if (found_name_and_postal_code_and_cvc && !uploading_local_card_)
       OfferCardLocalSave(upload_request_.card);
     upload_decision_metrics_ |=
         AutofillMetrics::UPLOAD_NOT_OFFERED_GET_UPLOAD_DETAILS_FAILED;

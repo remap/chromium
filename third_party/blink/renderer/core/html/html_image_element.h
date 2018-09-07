@@ -24,6 +24,8 @@
 #ifndef THIRD_PARTY_BLINK_RENDERER_CORE_HTML_HTML_IMAGE_ELEMENT_H_
 #define THIRD_PARTY_BLINK_RENDERER_CORE_HTML_HTML_IMAGE_ELEMENT_H_
 
+#include <memory>
+
 #include "third_party/blink/renderer/bindings/core/v8/active_script_wrappable.h"
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/dom/create_element_flags.h"
@@ -31,6 +33,8 @@
 #include "third_party/blink/renderer/core/html/forms/form_associated.h"
 #include "third_party/blink/renderer/core/html/html_element.h"
 #include "third_party/blink/renderer/core/html/html_image_loader.h"
+#include "third_party/blink/renderer/core/html/lazy_load_image_observer.h"
+#include "third_party/blink/renderer/platform/geometry/int_size.h"
 #include "third_party/blink/renderer/platform/graphics/graphics_types.h"
 #include "third_party/blink/renderer/platform/heap/heap_allocator.h"
 #include "third_party/blink/renderer/platform/loader/fetch/fetch_parameters.h"
@@ -104,6 +108,8 @@ class CORE_EXPORT HTMLImageElement final
 
   void setWidth(unsigned);
 
+  IntSize GetOverriddenIntrinsicSize() const;
+
   int x() const;
   int y() const;
 
@@ -134,7 +140,7 @@ class CORE_EXPORT HTMLImageElement final
 
   void SetIsFallbackImage() { is_fallback_image_ = true; }
 
-  FetchParameters::ResourceWidth GetResourceWidth();
+  FetchParameters::ResourceWidth GetResourceWidth() const;
   float SourceSize(Element&);
 
   void ForceReload() const;
@@ -143,6 +149,15 @@ class CORE_EXPORT HTMLImageElement final
   void AssociateWith(HTMLFormElement*) override;
 
   bool ElementCreatedByParser() const { return element_created_by_parser_; }
+
+  LazyLoadImageObserver::VisibleLoadTimeMetrics&
+  EnsureVisibleLoadTimeMetrics() {
+    if (!visible_load_time_metrics_) {
+      visible_load_time_metrics_ =
+          std::make_unique<LazyLoadImageObserver::VisibleLoadTimeMetrics>();
+    }
+    return *visible_load_time_metrics_;
+  }
 
  protected:
   // Controls how an image element appears in the layout. See:
@@ -206,6 +221,8 @@ class CORE_EXPORT HTMLImageElement final
   void NotifyViewportChanged();
   void CreateMediaQueryListIfDoesNotExist();
 
+  void ParseIntrinsicSizeAttribute(const String& value);
+
   Member<HTMLImageLoader> image_loader_;
   Member<ViewportChangeListener> listener_;
   Member<HTMLFormElement> form_;
@@ -217,8 +234,14 @@ class CORE_EXPORT HTMLImageElement final
   unsigned element_created_by_parser_ : 1;
   unsigned is_fallback_image_ : 1;
   bool should_invert_color_;
+  bool sizes_set_width_;
 
   ReferrerPolicy referrer_policy_;
+
+  IntSize overridden_intrinsic_size_;
+
+  std::unique_ptr<LazyLoadImageObserver::VisibleLoadTimeMetrics>
+      visible_load_time_metrics_;
 };
 
 }  // namespace blink

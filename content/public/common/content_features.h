@@ -94,6 +94,7 @@ CONTENT_EXPORT extern const base::Feature kScrollAnchorSerialization;
 CONTENT_EXPORT extern const base::Feature
     kSendBeaconThrowForBlobWithNonSimpleType;
 CONTENT_EXPORT extern const base::Feature kSecMetadata;
+CONTENT_EXPORT extern const base::Feature kServiceWorkerLongRunningMessage;
 CONTENT_EXPORT extern const base::Feature kServiceWorkerPaymentApps;
 CONTENT_EXPORT extern const base::Feature kServiceWorkerScriptFullCodeCache;
 CONTENT_EXPORT extern const base::Feature kSharedArrayBuffer;
@@ -122,9 +123,6 @@ CONTENT_EXPORT extern const base::Feature kWebAuthCableWin;
 CONTENT_EXPORT extern const base::Feature kWebContentsOcclusion;
 CONTENT_EXPORT extern const base::Feature kWebGLImageChromium;
 CONTENT_EXPORT extern const base::Feature kWebPayments;
-CONTENT_EXPORT extern const base::Feature kWebRtcAecBoundedErlSetup;
-CONTENT_EXPORT extern const base::Feature kWebRtcAecClockDriftSetup;
-CONTENT_EXPORT extern const base::Feature kWebRtcAecNoiseTransparency;
 CONTENT_EXPORT extern const base::Feature kWebRtcEcdsaDefault;
 CONTENT_EXPORT extern const base::Feature kWebRtcHWH264Encoding;
 CONTENT_EXPORT extern const base::Feature kWebRtcHWVP8Encoding;

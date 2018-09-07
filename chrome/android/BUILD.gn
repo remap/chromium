@@ -273,7 +273,6 @@ android_library("chrome_java") {
     "//services/shape_detection/public/mojom:mojom_java",
     "//skia/public/interfaces:interfaces_java",
     "//third_party/android_data_chart:android_data_chart_java",
-    "//third_party/android_deps:com_google_dagger_dagger_android_java",
     "//third_party/android_deps:com_google_dagger_dagger_java",
     "//third_party/android_deps:javax_inject_javax_inject_java",
     "//third_party/android_media:android_media_java",
@@ -292,6 +291,7 @@ android_library("chrome_java") {
     "//third_party/android_tools:android_support_v7_recyclerview_java",
     "//third_party/blink/public:android_mojo_bindings_java",
     "//third_party/blink/public:blink_headers_java",
+    "//third_party/blink/public/mojom:android_mojo_bindings_java",
     "//third_party/cacheinvalidation:cacheinvalidation_javalib",
     "//third_party/cacheinvalidation:cacheinvalidation_proto_java",
     "//third_party/custom_tabs_client:custom_tabs_support_java",
@@ -371,8 +371,7 @@ android_library("chrome_java") {
   jar_excluded_patterns = [ "*/AppHooksImpl.class" ]
 
   annotation_processor_deps = [
-    "//third_party/android_deps:dagger_processor",
-    "//third_party/android_deps:dagger_android_processor",
+    "//third_party/android_deps:dagger_processor"
   ]
 }
 
@@ -390,6 +389,7 @@ action("chrome_android_java_google_api_keys_srcjar") {
 
 java_cpp_enum("chrome_android_java_enums_srcjar") {
   sources = [
+    "//chrome/browser/android/crash/crash_keys_android.h",
     "//chrome/browser/android/customtabs/detached_resource_request.h",
     "//chrome/browser/android/digital_asset_links/digital_asset_links_handler.h",
     "//chrome/browser/android/feedback/connectivity_checker.cc",
@@ -517,6 +517,7 @@ junit_binary("chrome_junit_tests") {
     "//third_party/android_tools:android_support_v7_recyclerview_java",
     "//third_party/blink/public:android_mojo_bindings_java",
     "//third_party/blink/public:blink_headers_java",
+    "//third_party/blink/public/mojom:android_mojo_bindings_java",
     "//third_party/cacheinvalidation:cacheinvalidation_javalib",
     "//third_party/custom_tabs_client:custom_tabs_support_java",
     "//third_party/hamcrest:hamcrest_java",
@@ -657,6 +658,7 @@ android_library("chrome_test_java") {
     "//third_party/android_tools:android_test_runner_java",
     "//third_party/blink/public:android_mojo_bindings_java",
     "//third_party/blink/public:blink_headers_java",
+    "//third_party/blink/public/mojom:android_mojo_bindings_java",
     "//third_party/cacheinvalidation:cacheinvalidation_javalib",
     "//third_party/custom_tabs_client:custom_tabs_support_java",
     "//third_party/espresso:espresso_all_java",
@@ -1725,20 +1727,20 @@ if (defined(expected_static_initializer_count)) {
 if (enable_arcore) {
   ar_module_tmpl("ar_public_module") {
     manifest_package = manifest_package
-    module_name = "ArPublicModule"
+    module_name = "ArPublic"
   }
 }
 
 if (enable_vr) {
   vr_module_tmpl("vr_public_module") {
     manifest_package = manifest_package
-    module_name = "VrPublicModule"
+    module_name = "VrPublic"
   }
 }
 
 # Chrome Android application bundles.
 android_app_bundle("chrome_public_bundle") {
-  bundle_name = "ChromePublicBundle"
+  bundle_name = "ChromePublic"
   base_module_target = ":chrome_public_base_module"
   proguard_enabled = !is_java_debug
 
@@ -1749,7 +1751,7 @@ android_app_bundle("chrome_public_bundle") {
 }
 
 android_app_bundle("chrome_modern_public_bundle") {
-  bundle_name = "ChromeModernPublicBundle"
+  bundle_name = "ChromeModernPublic"
   base_module_target = ":chrome_modern_public_base_module"
   proguard_enabled = !is_java_debug
   if (enable_vr) {
@@ -1763,7 +1765,7 @@ android_app_bundle("chrome_modern_public_bundle") {
 }
 
 android_app_bundle("monochrome_public_bundle") {
-  bundle_name = "MonochromePublicBundle"
+  bundle_name = "MonochromePublic"
   base_module_target = ":monochrome_public_base_module"
   if (!is_java_debug) {
     proguard_enabled = true

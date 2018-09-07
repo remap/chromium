@@ -195,6 +195,7 @@ class WizardController : public BaseScreenDelegate,
   void ShowWaitForContainerReadyScreen();
   void ShowUpdateRequiredScreen();
   void ShowDiscoverScreen();
+  void ShowMarketingOptInScreen();
 
   // Shows images login screen.
   void ShowLoginScreen(const LoginScreenContext& context);
@@ -242,6 +243,7 @@ class WizardController : public BaseScreenDelegate,
   void OnDemoPreferencesCanceled();
   void OnWaitForContainerReadyFinished();
   void OnOobeFlowFinished();
+  void OnMarketingOptInFinished();
 
   // Callback invoked once it has been determined whether the device is disabled
   // or not.
@@ -262,9 +264,7 @@ class WizardController : public BaseScreenDelegate,
   void PerformOOBECompletedActions();
 
   // Overridden from BaseScreenDelegate:
-  void OnExit(BaseScreen& screen,
-              ScreenExitCode exit_code,
-              const ::login::ScreenContext* context) override;
+  void OnExit(ScreenExitCode exit_code) override;
   void ShowCurrentScreen() override;
   ErrorScreen* GetErrorScreen() override;
   void ShowErrorScreen() override;
@@ -391,8 +391,6 @@ class WizardController : public BaseScreenDelegate,
   // Whether to skip any screens that may normally be shown after login
   // (registration, Terms of Service, user image selection).
   static bool skip_post_login_screens_;
-
-  static bool zero_delay_enabled_;
 
   static bool skip_enrollment_prompts_;
 

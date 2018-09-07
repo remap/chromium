@@ -612,6 +612,8 @@ jumbo_split_static_library("browser") {
     "intranet_redirect_detector.h",
     "invalidation/deprecated_profile_invalidation_provider_factory.cc",
     "invalidation/deprecated_profile_invalidation_provider_factory.h",
+    "invalidation/profile_invalidation_provider_factory.cc",
+    "invalidation/profile_invalidation_provider_factory.h",
     "io_thread.cc",
     "io_thread.h",
     "language/chrome_language_detection_tab_helper.cc",
@@ -1606,8 +1608,6 @@ jumbo_split_static_library("browser") {
     "usb/web_usb_chooser.h",
     "usb/web_usb_histograms.cc",
     "usb/web_usb_histograms.h",
-    "usb/web_usb_permission_provider.cc",
-    "usb/web_usb_permission_provider.h",
     "usb/web_usb_service_impl.cc",
     "usb/web_usb_service_impl.h",
     "vr/ui_suppressed_element.h",
@@ -1763,7 +1763,7 @@ jumbo_split_static_library("browser") {
     "//components/language/content/browser",
     "//components/language/core/browser",
     "//components/live_tab_count_metrics",
-    "//components/metrics:call_stacks",
+    "//components/metrics:call_stack_profile_collector",
     "//components/metrics:component_metrics",
     "//components/metrics:gpu",
     "//components/metrics:net",
@@ -2075,6 +2075,8 @@ jumbo_split_static_library("browser") {
       "android/contextualsearch/unhandled_tap_web_contents_observer.cc",
       "android/contextualsearch/unhandled_tap_web_contents_observer.h",
       "android/cookies/cookies_fetcher_util.cc",
+      "android/crash/crash_keys_android.cc",
+      "android/crash/crash_keys_android.h",
       "android/crash/pure_java_exception_handler.cc",
       "android/crash/pure_java_exception_handler.h",
       "android/customtabs/detached_resource_request.cc",
@@ -2129,6 +2131,8 @@ jumbo_split_static_library("browser") {
       "android/explore_sites/explore_sites_bridge.h",
       "android/explore_sites/explore_sites_feature.cc",
       "android/explore_sites/explore_sites_feature.h",
+      "android/explore_sites/explore_sites_schema.cc",
+      "android/explore_sites/explore_sites_schema.h",
       "android/explore_sites/explore_sites_service.h",
       "android/explore_sites/explore_sites_service_factory.cc",
       "android/explore_sites/explore_sites_service_factory.h",
@@ -3168,6 +3172,7 @@ jumbo_split_static_library("browser") {
       "//components/browser_watcher:stability_client",
       "//components/chrome_cleaner/public/constants",
       "//components/chrome_cleaner/public/interfaces",
+      "//components/download/quarantine",
       "//third_party/crashpad/crashpad/client:client",
       "//third_party/iaccessible2",
       "//third_party/isimpledom",
@@ -3244,6 +3249,7 @@ jumbo_split_static_library("browser") {
 
   if (is_mac) {
     allow_circular_includes_from += [ "//chrome/browser/apps/app_shim" ]
+    sources += [ "download/drag_download_item_mac.mm" ]
     deps += [
       "//chrome/app_shim",
       "//chrome/browser/apps/app_shim",
@@ -3483,8 +3489,7 @@ jumbo_split_static_library("browser") {
   if (use_aura) {
     # Cross-platform Aura files.
     sources += [
-      # This file is called _views but has Aura calls in it.
-      "download/drag_download_item_views.cc",
+      "download/drag_download_item_aura.cc",
       "lifetime/application_lifetime_aura.cc",
       "platform_util_aura.cc",
     ]
@@ -3567,6 +3572,12 @@ jumbo_split_static_library("browser") {
       "//printing",
     ]
 
+    if (is_chromeos) {
+      sources += [
+        "policy/printing_restrictions_policy_handler.cc",
+        "policy/printing_restrictions_policy_handler.h",
+      ]
+    }
     if (is_win) {
       sources += [
         "printing/pdf_to_emf_converter.cc",
@@ -4521,6 +4532,7 @@ if (is_android) {
       "../android/java/src/org/chromium/chrome/browser/contextualsearch/ContextualSearchTabHelper.java",
       "../android/java/src/org/chromium/chrome/browser/contextualsearch/CtrSuppression.java",
       "../android/java/src/org/chromium/chrome/browser/cookies/CookiesFetcher.java",
+      "../android/java/src/org/chromium/chrome/browser/crash/CrashKeys.java",
       "../android/java/src/org/chromium/chrome/browser/crash/MinidumpUploadService.java",
       "../android/java/src/org/chromium/chrome/browser/crash/PureJavaExceptionHandler.java",
       "../android/java/src/org/chromium/chrome/browser/customtabs/CustomTabsConnection.java",

@@ -55,6 +55,7 @@
 #include "chrome/browser/chromeos/login/screens/hid_detection_view.h"
 #include "chrome/browser/chromeos/login/screens/kiosk_autolaunch_screen.h"
 #include "chrome/browser/chromeos/login/screens/kiosk_enable_screen.h"
+#include "chrome/browser/chromeos/login/screens/marketing_opt_in_screen.h"
 #include "chrome/browser/chromeos/login/screens/network_error.h"
 #include "chrome/browser/chromeos/login/screens/network_screen.h"
 #include "chrome/browser/chromeos/login/screens/recommend_apps_screen.h"
@@ -128,7 +129,7 @@ using content::BrowserThread;
 
 namespace {
 // Interval in ms which is used for smooth screen showing.
-static int kShowDelayMs = 400;
+static int g_show_delay_ms = 400;
 
 // Total timezone resolving process timeout.
 const unsigned int kResolveTimeZoneTimeoutSeconds = 60;
@@ -147,7 +148,9 @@ const chromeos::OobeScreen kResumableScreens[] = {
     chromeos::OobeScreen::SCREEN_AUTO_ENROLLMENT_CHECK,
     chromeos::OobeScreen::SCREEN_RECOMMEND_APPS,
     chromeos::OobeScreen::SCREEN_APP_DOWNLOADING,
-    chromeos::OobeScreen::SCREEN_DISCOVER};
+    chromeos::OobeScreen::SCREEN_DISCOVER,
+    chromeos::OobeScreen::SCREEN_MARKETING_OPT_IN,
+};
 
 // Checks if device is in tablet mode, and that HID-detection screen is not
 // disabled by flag.
@@ -158,8 +161,8 @@ bool CanShowHIDDetectionScreen() {
 }
 
 bool IsResumableScreen(chromeos::OobeScreen screen) {
-  for (size_t i = 0; i < arraysize(kResumableScreens); ++i) {
-    if (screen == kResumableScreens[i])
+  for (const auto& resumable_screen : kResumableScreens) {
+    if (screen == resumable_screen)
       return true;
   }
   return false;
@@ -272,8 +275,11 @@ chromeos::OobeUI* GetOobeUI() {
   return host ? host->GetOobeUI() : nullptr;
 }
 
-scoped_refptr<network::SharedURLLoaderFactory>
-    g_shared_url_loader_factory_for_testing = nullptr;
+scoped_refptr<network::SharedURLLoaderFactory>&
+GetSharedURLLoaderFactoryForTesting() {
+  static scoped_refptr<network::SharedURLLoaderFactory> loader;
+  return loader;
+}
 
 }  // namespace
 
@@ -287,9 +293,6 @@ bool WizardController::skip_post_login_screens_ = false;
 
 // static
 bool WizardController::skip_enrollment_prompts_ = false;
-
-// static
-bool WizardController::zero_delay_enabled_ = false;
 
 // static
 WizardController* WizardController::default_controller() {
@@ -314,7 +317,7 @@ WizardController::WizardController()
     // accessibility_manager could be null in Tests.
     accessibility_subscription_ = accessibility_manager->RegisterCallback(
         base::Bind(&WizardController::OnAccessibilityStatusChanged,
-                   base::Unretained(this)));
+                   weak_factory_.GetWeakPtr()));
   }
   oobe_configuration_ = OobeConfiguration::Get()->GetConfiguration().Clone();
   OobeConfiguration::Get()->AddObserver(this);
@@ -356,7 +359,8 @@ void WizardController::Init(OobeScreen first_screen) {
     if (status == PrefService::INITIALIZATION_STATUS_ERROR) {
       OnLocalStateInitialized(false);
       return;
-    } else if (status == PrefService::INITIALIZATION_STATUS_WAITING) {
+    }
+    if (status == PrefService::INITIALIZATION_STATUS_WAITING) {
       GetLocalState()->AddPrefInitObserver(
           base::BindOnce(&WizardController::OnLocalStateInitialized,
                          weak_factory_.GetWeakPtr()));
@@ -469,8 +473,8 @@ std::unique_ptr<BaseScreen> WizardController::CreateScreen(OobeScreen screen) {
         this, oobe_ui->GetAutoEnrollmentCheckScreenView());
   } else if (screen == OobeScreen::SCREEN_OOBE_CONTROLLER_PAIRING) {
     if (!shark_controller_) {
-      shark_controller_.reset(
-          new pairing_chromeos::BluetoothControllerPairingController());
+      shark_controller_ = std::make_unique<
+          pairing_chromeos::BluetoothControllerPairingController>();
     }
     return std::make_unique<ControllerPairingScreen>(
         this, this, oobe_ui->GetControllerPairingScreenView(),
@@ -481,8 +485,9 @@ std::unique_ptr<BaseScreen> WizardController::CreateScreen(OobeScreen screen) {
       DCHECK(content::ServiceManagerConnection::GetForProcess());
       service_manager::Connector* connector =
           content::ServiceManagerConnection::GetForProcess()->GetConnector();
-      remora_controller_.reset(
-          new pairing_chromeos::BluetoothHostPairingController(connector));
+      remora_controller_ =
+          std::make_unique<pairing_chromeos::BluetoothHostPairingController>(
+              connector);
       remora_controller_->StartPairing();
     }
     return std::make_unique<HostPairingScreen>(
@@ -509,6 +514,9 @@ std::unique_ptr<BaseScreen> WizardController::CreateScreen(OobeScreen screen) {
   } else if (screen == OobeScreen::SCREEN_FINGERPRINT_SETUP) {
     return std::make_unique<FingerprintSetupScreen>(
         this, oobe_ui->GetFingerprintSetupScreenView());
+  } else if (screen == OobeScreen::SCREEN_MARKETING_OPT_IN) {
+    return std::make_unique<MarketingOptInScreen>(
+        this, oobe_ui->GetMarketingOptInScreenView());
   }
   return nullptr;
 }
@@ -519,7 +527,8 @@ void WizardController::SetCurrentScreenForTesting(BaseScreen* screen) {
 
 void WizardController::SetSharedURLLoaderFactoryForTesting(
     scoped_refptr<network::SharedURLLoaderFactory> factory) {
-  g_shared_url_loader_factory_for_testing = std::move(factory);
+  auto& testing_factory = GetSharedURLLoaderFactoryForTesting();
+  testing_factory = std::move(factory);
 }
 
 void WizardController::ShowWelcomeScreen() {
@@ -668,6 +677,12 @@ void WizardController::ShowFingerprintSetupScreen() {
   VLOG(1) << "Showing Fingerprint Setup screen.";
   UpdateStatusAreaVisibilityForScreen(OobeScreen::SCREEN_FINGERPRINT_SETUP);
   SetCurrentScreen(GetScreen(OobeScreen::SCREEN_FINGERPRINT_SETUP));
+}
+
+void WizardController::ShowMarketingOptInScreen() {
+  VLOG(1) << "Showing Marketing Opt-In screen.";
+  UpdateStatusAreaVisibilityForScreen(OobeScreen::SCREEN_MARKETING_OPT_IN);
+  SetCurrentScreen(GetScreen(OobeScreen::SCREEN_MARKETING_OPT_IN));
 }
 
 void WizardController::ShowArcTermsOfServiceScreen() {
@@ -896,11 +911,6 @@ void WizardController::OnConnectionFailed() {
 }
 
 void WizardController::OnUpdateCompleted() {
-  if (demo_setup_controller_) {
-    ShowDemoModeSetupScreen();
-    return;
-  }
-
   if (IsSharkRequisition() || IsBootstrappingMaster()) {
     ShowControllerPairingScreen();
   } else if (IsControllerDetected()) {
@@ -1049,6 +1059,10 @@ void WizardController::OnTermsOfServiceAccepted() {
 }
 
 void WizardController::OnSyncConsentFinished() {
+  ShowMarketingOptInScreen();
+}
+
+void WizardController::OnMarketingOptInFinished() {
   if (chromeos::quick_unlock::IsFingerprintEnabled())
     ShowFingerprintSetupScreen();
   else
@@ -1195,7 +1209,10 @@ void WizardController::OnDeviceDisabledChecked(bool device_disabled) {
                                       ->browser_policy_connector_chromeos()
                                       ->GetPrescribedEnrollmentConfig();
   if (device_disabled) {
+    demo_setup_controller_.reset();
     ShowDeviceDisabledScreen();
+  } else if (demo_setup_controller_) {
+    ShowDemoModeSetupScreen();
   } else if (skip_update_enroll_after_eula_ ||
              prescribed_enrollment_config_.should_enroll()) {
     StartEnrollmentScreen(skip_update_enroll_after_eula_);
@@ -1234,14 +1251,15 @@ void WizardController::StartOOBEUpdate() {
 void WizardController::StartTimezoneResolve() {
   if (!g_browser_process->platform_part()
            ->GetTimezoneResolverManager()
-           ->TimeZoneResolverShouldBeRunning())
+           ->TimeZoneResolverShouldBeRunning()) {
     return;
+  }
 
-  geolocation_provider_.reset(new SimpleGeolocationProvider(
-      g_shared_url_loader_factory_for_testing
-          ? g_shared_url_loader_factory_for_testing
-          : g_browser_process->shared_url_loader_factory(),
-      SimpleGeolocationProvider::DefaultGeolocationProviderURL()));
+  auto& testing_factory = GetSharedURLLoaderFactoryForTesting();
+  geolocation_provider_ = std::make_unique<SimpleGeolocationProvider>(
+      testing_factory ? testing_factory
+                      : g_browser_process->shared_url_loader_factory(),
+      SimpleGeolocationProvider::DefaultGeolocationProviderURL());
   geolocation_provider_->RequestGeolocation(
       base::TimeDelta::FromSeconds(kResolveTimeZoneTimeoutSeconds),
       false /* send_wifi_geolocation_data */,
@@ -1335,7 +1353,7 @@ void WizardController::SetCurrentScreenSmooth(BaseScreen* new_current,
 
   if (use_smoothing) {
     smooth_show_timer_.Start(FROM_HERE,
-                             base::TimeDelta::FromMilliseconds(kShowDelayMs),
+                             base::TimeDelta::FromMilliseconds(g_show_delay_ms),
                              this, &WizardController::ShowCurrentScreen);
   } else {
     ShowCurrentScreen();
@@ -1447,6 +1465,8 @@ void WizardController::AdvanceToScreen(OobeScreen screen) {
     ShowDiscoverScreen();
   } else if (screen == OobeScreen::SCREEN_FINGERPRINT_SETUP) {
     ShowFingerprintSetupScreen();
+  } else if (screen == OobeScreen::SCREEN_MARKETING_OPT_IN) {
+    ShowMarketingOptInScreen();
   } else if (screen != OobeScreen::SCREEN_TEST_NO_WINDOW) {
     if (is_out_of_box_) {
       time_oobe_started_ = base::Time::Now();
@@ -1479,9 +1499,7 @@ void WizardController::SimulateDemoModeSetupForTesting() {
 
 ///////////////////////////////////////////////////////////////////////////////
 // WizardController, BaseScreenDelegate overrides:
-void WizardController::OnExit(BaseScreen& /* screen */,
-                              ScreenExitCode exit_code,
-                              const ::login::ScreenContext* /* context */) {
+void WizardController::OnExit(ScreenExitCode exit_code) {
   VLOG(1) << "Wizard screen exit code: " << ExitCodeToString(exit_code);
   const OobeScreen previous_screen = current_screen_->screen_id();
   if (IsOOBEStepToTrack(previous_screen)) {
@@ -1621,6 +1639,9 @@ void WizardController::OnExit(BaseScreen& /* screen */,
       break;
     case ScreenExitCode::FINGERPRINT_SETUP_FINISHED:
       OnFingerprintSetupFinished();
+      break;
+    case ScreenExitCode::MARKETING_OPT_IN_FINISHED:
+      ShowArcTermsOfServiceScreen();
       break;
     default:
       NOTREACHED();
@@ -1774,13 +1795,12 @@ void WizardController::AutoLaunchKioskApp() {
 
 // static
 void WizardController::SetZeroDelays() {
-  kShowDelayMs = 0;
-  zero_delay_enabled_ = true;
+  g_show_delay_ms = 0;
 }
 
 // static
 bool WizardController::IsZeroDelayEnabled() {
-  return zero_delay_enabled_;
+  return g_show_delay_ms == 0;
 }
 
 // static
@@ -1807,7 +1827,8 @@ void WizardController::SkipPostLoginScreensForTesting() {
       current_screen_id == OobeScreen::SCREEN_FINGERPRINT_SETUP ||
       current_screen_id == OobeScreen::SCREEN_ARC_TERMS_OF_SERVICE ||
       current_screen_id == OobeScreen::SCREEN_USER_IMAGE_PICKER ||
-      current_screen_id == OobeScreen::SCREEN_DISCOVER) {
+      current_screen_id == OobeScreen::SCREEN_DISCOVER ||
+      current_screen_id == OobeScreen::SCREEN_MARKETING_OPT_IN) {
     default_controller()->OnOobeFlowFinished();
   } else {
     LOG(WARNING) << "SkipPostLoginScreensForTesting(): Ignore screen "
@@ -1847,10 +1868,7 @@ void WizardController::OnTimezoneResolved(
     std::unique_ptr<TimeZoneResponseData> timezone,
     bool server_error) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
-  DCHECK(timezone.get());
-  // To check that "this" is not destroyed try to access some member
-  // (timezone_provider_) in this case. Expect crash here.
-  DCHECK(timezone_provider_.get());
+  DCHECK(timezone);
 
   timezone_resolved_ = true;
   base::ScopedClosureRunner inform_test(on_timezone_resolved_for_testing_);
@@ -1886,11 +1904,11 @@ void WizardController::OnTimezoneResolved(
 
 TimeZoneProvider* WizardController::GetTimezoneProvider() {
   if (!timezone_provider_) {
-    timezone_provider_.reset(new TimeZoneProvider(
-        g_shared_url_loader_factory_for_testing
-            ? g_shared_url_loader_factory_for_testing
-            : g_browser_process->shared_url_loader_factory(),
-        DefaultTimezoneProviderURL()));
+    auto& testing_factory = GetSharedURLLoaderFactoryForTesting();
+    timezone_provider_ = std::make_unique<TimeZoneProvider>(
+        testing_factory ? testing_factory
+                        : g_browser_process->shared_url_loader_factory(),
+        DefaultTimezoneProviderURL());
   }
   return timezone_provider_.get();
 }
@@ -1923,7 +1941,7 @@ void WizardController::OnLocationResolved(const Geoposition& position,
   GetTimezoneProvider()->RequestTimezone(
       position, timeout - elapsed,
       base::Bind(&WizardController::OnTimezoneResolved,
-                 base::Unretained(this)));
+                 weak_factory_.GetWeakPtr()));
 }
 
 bool WizardController::SetOnTimeZoneResolvedForTesting(
@@ -1975,10 +1993,10 @@ void WizardController::MaybeStartListeningForSharkConnection() {
     DCHECK(content::ServiceManagerConnection::GetForProcess());
     service_manager::Connector* connector =
         content::ServiceManagerConnection::GetForProcess()->GetConnector();
-    shark_connection_listener_.reset(
-        new pairing_chromeos::SharkConnectionListener(
+    shark_connection_listener_ =
+        std::make_unique<pairing_chromeos::SharkConnectionListener>(
             connector, base::Bind(&WizardController::OnSharkConnected,
-                                  weak_factory_.GetWeakPtr())));
+                                  weak_factory_.GetWeakPtr()));
   }
 }
 

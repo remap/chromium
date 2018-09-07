@@ -328,7 +328,6 @@ class CloseAfterCommit : public ui::CompositorObserver,
   void OnCompositingStarted(ui::Compositor* compositor,
                             base::TimeTicks start_time) override {}
   void OnCompositingEnded(ui::Compositor* compositor) override {}
-  void OnCompositingLockStateChanged(ui::Compositor* compositor) override {}
   void OnCompositingChildResizing(ui::Compositor* compositor) override {}
   void OnCompositingShuttingDown(ui::Compositor* compositor) override {}
 
@@ -561,7 +560,12 @@ void LoginDisplayHostWebUI::OnStartUserAdding() {
   DisableKeyboardOverscroll();
 
   restore_path_ = RESTORE_ADD_USER_INTO_SESSION;
-  finalize_animation_type_ = ANIMATION_ADD_USER;
+  // TODO(crbug.com/875111): MultiUserWindowManager support for mash.
+  if (!features::IsUsingWindowService())
+    finalize_animation_type_ = ANIMATION_ADD_USER;
+  else
+    finalize_animation_type_ = ANIMATION_NONE;
+
   // Observe the user switch animation and defer the deletion of itself only
   // after the animation is finished.
   MultiUserWindowManager* window_manager =

@@ -28,12 +28,12 @@
 #include "mojo/public/cpp/bindings/binding.h"
 #include "third_party/blink/public/common/service_worker/service_worker_status_code.h"
 #include "third_party/blink/public/mojom/blob/blob_registry.mojom.h"
+#include "third_party/blink/public/mojom/payments/payment_app.mojom.h"
 #include "third_party/blink/public/mojom/service_worker/service_worker.mojom.h"
 #include "third_party/blink/public/mojom/service_worker/service_worker_client.mojom.h"
 #include "third_party/blink/public/mojom/service_worker/service_worker_event_status.mojom.h"
 #include "third_party/blink/public/mojom/service_worker/service_worker_registration.mojom.h"
 #include "third_party/blink/public/platform/modules/background_fetch/background_fetch.mojom.h"
-#include "third_party/blink/public/platform/modules/payments/payment_app.mojom.h"
 #include "third_party/blink/public/platform/modules/service_worker/web_service_worker_error.h"
 #include "third_party/blink/public/web/modules/service_worker/web_service_worker_context_client.h"
 #include "third_party/blink/public/web/modules/service_worker/web_service_worker_context_proxy.h"
@@ -57,6 +57,7 @@ namespace content {
 
 struct PlatformNotificationData;
 class EmbeddedWorkerInstanceClientImpl;
+class HostChildURLLoaderFactoryBundle;
 class ServiceWorkerNetworkProvider;
 class ServiceWorkerProviderContext;
 class ServiceWorkerTimeoutTimer;
@@ -100,6 +101,7 @@ class CONTENT_EXPORT ServiceWorkerContextClient
       std::unique_ptr<EmbeddedWorkerInstanceClientImpl> embedded_worker_client,
       mojom::EmbeddedWorkerStartTimingPtr start_timing,
       mojom::RendererPreferenceWatcherRequest preference_watcher_request,
+      std::unique_ptr<URLLoaderFactoryBundleInfo> subresource_loaders,
       scoped_refptr<base::SingleThreadTaskRunner> main_thread_task_runner);
   ~ServiceWorkerContextClient() override;
 
@@ -291,11 +293,9 @@ class CONTENT_EXPORT ServiceWorkerContextClient
       DispatchBackgroundFetchClickEventCallback callback) override;
   void DispatchBackgroundFetchFailEvent(
       const BackgroundFetchRegistration& registration,
-      const std::vector<BackgroundFetchSettledFetch>& fetches,
       DispatchBackgroundFetchFailEventCallback callback) override;
   void DispatchBackgroundFetchSuccessEvent(
       const BackgroundFetchRegistration& registration,
-      const std::vector<BackgroundFetchSettledFetch>& fetches,
       DispatchBackgroundFetchSuccessEventCallback callback) override;
   void DispatchExtendableMessageEvent(
       mojom::ExtendableMessageEventPtr event,
@@ -447,6 +447,10 @@ class CONTENT_EXPORT ServiceWorkerContextClient
   // Accessed on the worker thread. Passed to the browser process after worker
   // startup completes.
   mojom::EmbeddedWorkerStartTimingPtr start_timing_;
+
+  // S13nServiceWorker:
+  // A URLLoaderFactory instance used for subresource loading.
+  scoped_refptr<HostChildURLLoaderFactoryBundle> loader_factories_;
 
   DISALLOW_COPY_AND_ASSIGN(ServiceWorkerContextClient);
 };

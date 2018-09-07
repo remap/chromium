@@ -223,6 +223,7 @@ namespace http://www.w3.org/1999/xhtml
     property onpointermove
     property onpointerout
     property onpointerover
+    property onpointerrawmove
     property onpointerup
     property onprogress
     property onratechange
@@ -307,6 +308,7 @@ html element a
     property host
     property hostname
     property href
+    property hrefTranslate
     property hreflang
     property name
     property origin
@@ -647,6 +649,7 @@ html element img
     property height
     property hspace
     property importance
+    property intrinsicSize
     property isMap
     property longDesc
     property lowsrc
@@ -864,6 +867,7 @@ html element param
 html element picture
 html element plaintext
 html element portal
+    property src
 html element pre
     property width
 html element progress
@@ -1121,6 +1125,7 @@ html element video
     property error
     property getVideoPlaybackQuality
     property height
+    property intrinsicSize
     property load
     property loop
     property mediaKeys
@@ -1371,6 +1376,7 @@ namespace http://www.w3.org/2000/svg
     property onpointermove
     property onpointerout
     property onpointerover
+    property onpointerrawmove
     property onpointerup
     property onprogress
     property onratechange

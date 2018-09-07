@@ -160,6 +160,8 @@ void PopulateURLLoadTiming(const net::LoadTimingInfo& load_timing,
   url_timing->SetPushEnd(load_timing.push_end);
 }
 
+// This is complementary to ConvertNetPriorityToWebKitPriority, defined in
+// service_worker_context_client.cc.
 net::RequestPriority ConvertWebKitPriorityToNetPriority(
     const WebURLRequest::Priority& priority) {
   switch (priority) {
@@ -1201,8 +1203,7 @@ void WebURLLoaderImpl::PopulateURLResponse(
   response->SetWasFetchedViaServiceWorker(info.was_fetched_via_service_worker);
   response->SetWasFallbackRequiredByServiceWorker(
       info.was_fallback_required_by_service_worker);
-  response->SetResponseTypeViaServiceWorker(
-      info.response_type_via_service_worker);
+  response->SetType(info.response_type);
   response->SetURLListViaServiceWorker(info.url_list_via_service_worker);
   response->SetCacheStorageCacheName(
       info.is_in_cache_storage

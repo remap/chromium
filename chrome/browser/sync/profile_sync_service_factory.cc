@@ -21,6 +21,7 @@
 #include "chrome/browser/gcm/gcm_profile_service_factory.h"
 #include "chrome/browser/history/history_service_factory.h"
 #include "chrome/browser/invalidation/deprecated_profile_invalidation_provider_factory.h"
+#include "chrome/browser/invalidation/profile_invalidation_provider_factory.h"
 #include "chrome/browser/password_manager/password_store_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
@@ -29,7 +30,6 @@
 #include "chrome/browser/signin/chrome_device_id_helper.h"
 #include "chrome/browser/signin/gaia_cookie_manager_service_factory.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
-#include "chrome/browser/signin/signin_manager_factory.h"
 #include "chrome/browser/signin/unified_consent_helper.h"
 #include "chrome/browser/spellchecker/spellcheck_factory.h"
 #include "chrome/browser/sync/bookmark_sync_service_factory.h"
@@ -44,15 +44,12 @@
 #include "components/browser_sync/profile_sync_service.h"
 #include "components/keyed_service/content/browser_context_dependency_manager.h"
 #include "components/network_time/network_time_tracker.h"
-#include "components/signin/core/browser/signin_manager.h"
-#include "components/sync/driver/signin_manager_wrapper.h"
 #include "components/sync/driver/startup_controller.h"
 #include "components/sync/driver/sync_util.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/storage_partition.h"
 #include "extensions/buildflags/buildflags.h"
-#include "net/url_request/url_request_context_getter.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
 #include "url/gurl.h"
 
@@ -147,8 +144,8 @@ ProfileSyncServiceFactory::ProfileSyncServiceFactory()
   DependsOn(IdentityManagerFactory::GetInstance());
   DependsOn(invalidation::DeprecatedProfileInvalidationProviderFactory::
                 GetInstance());
+  DependsOn(invalidation::ProfileInvalidationProviderFactory::GetInstance());
   DependsOn(PasswordStoreFactory::GetInstance());
-  DependsOn(SigninManagerFactory::GetInstance());
   DependsOn(SpellcheckServiceFactory::GetInstance());
 #if BUILDFLAG(ENABLE_SUPERVISED_USERS)
   DependsOn(SupervisedUserSettingsServiceFactory::GetInstance());
@@ -182,14 +179,13 @@ KeyedService* ProfileSyncServiceFactory::BuildServiceInstanceFor(
   Profile* profile = Profile::FromBrowserContext(context);
 
   init_params.network_time_update_callback = base::Bind(&UpdateNetworkTime);
-  init_params.url_request_context = profile->GetRequestContext();
   init_params.url_loader_factory =
       content::BrowserContext::GetDefaultStoragePartition(profile)
           ->GetURLLoaderFactoryForBrowserProcess();
   init_params.debug_identifier = profile->GetDebugName();
   init_params.channel = chrome::GetChannel();
   init_params.user_events_separate_pref_group =
-      IsUnifiedConsentEnabled(profile);
+      IsUnifiedConsentFeatureEnabled(profile);
 
   if (!client_factory_) {
     init_params.sync_client =
@@ -234,9 +230,8 @@ KeyedService* ProfileSyncServiceFactory::BuildServiceInstanceFor(
     // once http://crbug.com/171406 has been fixed.
     AboutSigninInternalsFactory::GetForProfile(profile);
 
-    init_params.signin_wrapper = std::make_unique<SigninManagerWrapper>(
-        IdentityManagerFactory::GetForProfile(profile),
-        SigninManagerFactory::GetForProfile(profile));
+    init_params.identity_manager =
+        IdentityManagerFactory::GetForProfile(profile);
     init_params.signin_scoped_device_id_callback =
         base::BindRepeating(&GetSigninScopedDeviceIdForProfile, profile);
     init_params.gaia_cookie_manager_service =

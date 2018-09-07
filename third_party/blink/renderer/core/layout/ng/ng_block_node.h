@@ -58,7 +58,7 @@ class CORE_EXPORT NGBlockNode final : public NGLayoutInputNode {
                                const MinMaxSizeInput&,
                                const NGConstraintSpace* = nullptr);
 
-  MinMaxSize ComputeMinMaxSizeFromLegacy() const;
+  MinMaxSize ComputeMinMaxSizeFromLegacy(NGMinMaxSizeType) const;
 
   NGBoxStrut GetScrollbarSizes() const;
 
@@ -97,6 +97,8 @@ class CORE_EXPORT NGBlockNode final : public NGLayoutInputNode {
   String ToString() const;
 
  private:
+  void PrepareForLayout();
+
   void FinishLayout(const NGConstraintSpace&,
                     NGBreakToken*,
                     scoped_refptr<NGLayoutResult>);
@@ -117,6 +119,7 @@ class CORE_EXPORT NGBlockNode final : public NGLayoutInputNode {
                                  const NGPhysicalBoxFragment&);
   void CopyChildFragmentPosition(
       const NGPhysicalFragment& fragment,
+      const NGPhysicalOffset& fragment_offset,
       const NGPhysicalOffset& additional_offset = NGPhysicalOffset());
 
   void CopyBaselinesFromOldLayout(const NGConstraintSpace&, NGFragmentBuilder*);

@@ -11,6 +11,8 @@
 #include "third_party/blink/renderer/core/layout/ng/ng_constraint_space_builder.h"
 #include "third_party/blink/renderer/core/layout/ng/ng_fragment_builder.h"
 #include "third_party/blink/renderer/core/layout/ng/ng_layout_algorithm.h"
+#include "third_party/blink/renderer/core/layout/ng/ng_unpositioned_float.h"
+#include "third_party/blink/renderer/core/layout/ng/ng_unpositioned_float_vector.h"
 #include "third_party/blink/renderer/platform/fonts/font_baseline.h"
 #include "third_party/blink/renderer/platform/wtf/vector.h"
 
@@ -64,7 +66,7 @@ class CORE_EXPORT NGInlineLayoutAlgorithm final
                         const NGLineInfo&,
                         NGInlineItemResult*,
                         NGInlineBoxState*);
-  void PlaceGeneratedContent(scoped_refptr<NGPhysicalFragment>,
+  void PlaceGeneratedContent(scoped_refptr<const NGPhysicalFragment>,
                              UBiDiLevel,
                              NGInlineBoxState*);
   NGInlineBoxState* PlaceAtomicInline(const NGInlineItem&,
@@ -96,7 +98,7 @@ class CORE_EXPORT NGInlineLayoutAlgorithm final
   unsigned quirks_mode_ : 1;
 
   Vector<NGPositionedFloat> positioned_floats_;
-  Vector<scoped_refptr<NGUnpositionedFloat>> unpositioned_floats_;
+  NGUnpositionedFloatVector unpositioned_floats_;
 };
 
 }  // namespace blink

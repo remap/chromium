@@ -120,11 +120,6 @@ namespace {
 // V1 saw errors of ~0.065 between computed window and content widths.
 const float kMobileViewportWidthEpsilon = 0.15f;
 
-// We report frames and their display time to the FrameMetrics to analyze fps
-// for every |kFrameMetricsScrollReportFrequency|th scroll event after the last
-// report.
-const int kFrameMetricsScrollReportFrequency = 10;
-
 bool HasFixedPageScale(LayerTreeImpl* active_tree) {
   return active_tree->min_page_scale_factor() ==
          active_tree->max_page_scale_factor();
@@ -1002,7 +997,7 @@ DrawResult LayerTreeHostImpl::CalculateRenderPasses(FrameData* frame) {
     return DRAW_SUCCESS;
   }
 
-  TRACE_EVENT_BEGIN2("cc", "LayerTreeHostImpl::CalculateRenderPasses",
+  TRACE_EVENT_BEGIN2("cc,benchmark", "LayerTreeHostImpl::CalculateRenderPasses",
                      "render_surface_list.size()",
                      static_cast<uint64_t>(frame->render_surface_list->size()),
                      "RequiresHighResToDraw", RequiresHighResToDraw());
@@ -1230,7 +1225,7 @@ DrawResult LayerTreeHostImpl::CalculateRenderPasses(FrameData* frame) {
         checkerboarded_needs_raster_content_area);
   }
 
-  TRACE_EVENT_END2("cc", "LayerTreeHostImpl::CalculateRenderPasses",
+  TRACE_EVENT_END2("cc,benchmark", "LayerTreeHostImpl::CalculateRenderPasses",
                    "draw_result", draw_result, "missing tiles",
                    num_missing_tiles);
 
@@ -1902,17 +1897,13 @@ viz::CompositorFrameMetadata LayerTreeHostImpl::MakeCompositorFrameMetadata() {
   metadata.root_background_color = active_tree_->background_color();
   metadata.content_source_id = active_tree_->content_source_id();
 
-  // Skip recording frame metrics for android_webview
-  // (using_synchronous_renderer_compositor) scrolls because different
-  // application is handling frame presentation in android webview.
   if (active_tree_->has_presentation_callbacks() ||
-      settings_.always_request_presentation_time ||
-      (scroll_events_after_reporting_ == 0 && CurrentlyScrollingNode() &&
-       !settings_.using_synchronous_renderer_compositor)) {
+      settings_.always_request_presentation_time) {
     metadata.request_presentation_feedback = true;
     frame_token_infos_.emplace_back(metadata.frame_token,
                                     CurrentBeginFrameArgs().frame_time,
                                     active_tree_->TakePresentationCallbacks());
+
     DCHECK_LE(frame_token_infos_.size(), 25u);
   }
 
@@ -2078,6 +2069,7 @@ bool LayerTreeHostImpl::DrawLayers(FrameData* frame) {
 
 viz::CompositorFrame LayerTreeHostImpl::GenerateCompositorFrame(
     FrameData* frame) {
+  TRACE_EVENT0("cc,benchmark", "LayerTreeHostImpl::GenerateCompositorFrame");
   TRACE_EVENT_WITH_FLOW1("viz,benchmark", "Graphics.Pipeline",
                          TRACE_ID_GLOBAL(CurrentBeginFrameArgs().trace_id),
                          TRACE_EVENT_FLAG_FLOW_IN | TRACE_EVENT_FLAG_FLOW_OUT,
@@ -2749,6 +2741,7 @@ void LayerTreeHostImpl::PushScrollbarOpacitiesFromActiveToPending() {
 }
 
 void LayerTreeHostImpl::ActivateSyncTree() {
+  TRACE_EVENT0("cc,benchmark", "LayerTreeHostImpl::ActivateSyncTree()");
   if (pending_tree_) {
     TRACE_EVENT_ASYNC_END0("cc", "PendingTree:waiting", pending_tree_.get());
     active_tree_->lifecycle().AdvanceTo(LayerTreeLifecycle::kBeginningSync);
@@ -4474,14 +4467,6 @@ void LayerTreeHostImpl::ScrollEndImpl(ScrollState* scroll_state) {
   DistributeScrollDelta(scroll_state);
   browser_controls_offset_manager_->ScrollEnd();
   ClearCurrentlyScrollingNode();
-
-  // At the end of a scrolling event, increases |scroll_events_after_reporting_|
-  // by 1. If it is the |kFrameMetricsScrollReportFrequency| scrolling event
-  // after the previous report to the frame metrics, then
-  // |scroll_events_after_reporting_| becomes 0 and the data will be reported
-  // back the frame metrics.
-  scroll_events_after_reporting_ =
-      (scroll_events_after_reporting_ + 1) % kFrameMetricsScrollReportFrequency;
 }
 
 void LayerTreeHostImpl::ScrollEnd(ScrollState* scroll_state, bool should_snap) {

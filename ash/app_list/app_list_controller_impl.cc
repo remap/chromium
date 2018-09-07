@@ -45,8 +45,7 @@ int64_t GetDisplayIdToShowAppListOn() {
 
 namespace ash {
 
-AppListControllerImpl::AppListControllerImpl(
-    ui::ws2::WindowService* window_service)
+AppListControllerImpl::AppListControllerImpl(ws::WindowService* window_service)
     : window_service_(window_service),
       presenter_(std::make_unique<AppListPresenterDelegateImpl>(this)),
       is_home_launcher_enabled_(app_list::features::IsHomeLauncherEnabled()),
@@ -73,10 +72,10 @@ AppListControllerImpl::AppListControllerImpl(
   Shell::Get()->AddShellObserver(this);
   keyboard::KeyboardController::Get()->AddObserver(this);
 
-  if (IsHomeLauncherEnabledInTabletMode() &&
+  if (is_home_launcher_enabled_ &&
       app_list::features::IsHomeLauncherGesturesEnabled()) {
     home_launcher_gesture_handler_ =
-        std::make_unique<HomeLauncherGestureHandler>();
+        std::make_unique<HomeLauncherGestureHandler>(this);
   }
 
   mojom::VoiceInteractionObserverPtr ptr;
@@ -386,31 +385,21 @@ void AppListControllerImpl::OnAppListItemAdded(app_list::AppListItem* item) {
     client_->OnPageBreakItemAdded(item->id(), item->position());
 }
 
-void AppListControllerImpl::OnSessionStateChanged(
-    session_manager::SessionState state) {
-  if (!IsHomeLauncherEnabledInTabletMode() ||
-      !display::Display::HasInternalDisplay() ||
-      state != session_manager::SessionState::ACTIVE) {
-    return;
-  }
-
-  // Show the app list after signing in in tablet mode.
-  Show(display::Display::InternalDisplayId(),
-       app_list::AppListShowSource::kTabletMode, base::TimeTicks());
-}
-
 void AppListControllerImpl::OnActiveUserPrefServiceChanged(
-    PrefService* pref_service) {
+    PrefService* /* pref_service */) {
   if (!IsHomeLauncherEnabledInTabletMode() ||
       !display::Display::HasInternalDisplay()) {
     DismissAppList();
     return;
   }
 
+  // Show the app list after signing in in tablet mode.
+  Show(display::Display::InternalDisplayId(),
+       app_list::AppListShowSource::kTabletMode, base::TimeTicks());
+
   // The app list is not dismissed before switching user, suggestion chips will
   // not be shown. So reset app list state and trigger an initial search here to
   // update the suggestion results.
-  DCHECK(presenter_.GetTargetVisibility());
   presenter_.GetView()->CloseOpenedPage();
   presenter_.GetView()->search_box_view()->ClearSearch();
 }
@@ -524,14 +513,6 @@ void AppListControllerImpl::OnOverviewModeEnding() {
 }
 
 void AppListControllerImpl::OnTabletModeStarted() {
-  // TODO(sammiequon): Find a better way to handle events that are not in tablet
-  // mode than controlling the lifetime fo this object.
-  if (IsHomeLauncherEnabledInTabletMode() &&
-      app_list::features::IsHomeLauncherGesturesEnabled()) {
-    home_launcher_gesture_handler_ =
-        std::make_unique<HomeLauncherGestureHandler>();
-  }
-
   if (presenter_.GetTargetVisibility()) {
     DCHECK(IsVisible());
     presenter_.GetView()->OnTabletModeChanged(true);
@@ -552,8 +533,6 @@ void AppListControllerImpl::OnTabletModeStarted() {
 }
 
 void AppListControllerImpl::OnTabletModeEnded() {
-  home_launcher_gesture_handler_.reset();
-
   if (IsVisible())
     presenter_.GetView()->OnTabletModeChanged(false);
 
@@ -725,7 +704,7 @@ void AppListControllerImpl::ShowWallpaperContextMenu(
   Shell::Get()->ShowContextMenu(onscreen_location, source_type);
 }
 
-ui::ws2::WindowService* AppListControllerImpl::GetWindowService() {
+ws::WindowService* AppListControllerImpl::GetWindowService() {
   return window_service_;
 }
 

@@ -10,6 +10,8 @@
 #include "base/test/scoped_feature_list.h"
 #include "base/test/scoped_task_environment.h"
 #include "device/base/features.h"
+#include "device/bluetooth/bluetooth_adapter_factory.h"
+#include "device/bluetooth/test/mock_bluetooth_adapter.h"
 #include "device/fido/authenticator_get_assertion_response.h"
 #include "device/fido/ctap_get_assertion_request.h"
 #include "device/fido/device_response_converter.h"
@@ -35,23 +37,28 @@ using TestGetAssertionRequestCallback = test::StatusAndValuesCallbackReceiver<
     base::Optional<AuthenticatorGetAssertionResponse>,
     FidoTransportProtocol>;
 
-// Returns the set of transport protocols that are safe to test with. Because
-// FidoCableDiscovery cannot be faked out, and attempting to start the real
-// thing would flakily work/fail depending on the environment, avoid testing.
-base::flat_set<FidoTransportProtocol> GetTestableTransportProtocols() {
-  auto transports = GetAllTransportProtocols();
-  transports.erase(FidoTransportProtocol::kCloudAssistedBluetoothLowEnergy);
-  return transports;
-}
-
 }  // namespace
 
 class FidoGetAssertionHandlerTest : public ::testing::Test {
  public:
+  FidoGetAssertionHandlerTest() {
+    mock_adapter_ =
+        base::MakeRefCounted<::testing::NiceMock<MockBluetoothAdapter>>();
+    BluetoothAdapterFactory::SetAdapterForTesting(mock_adapter_);
+  }
+
   void ForgeDiscoveries() {
     discovery_ = scoped_fake_discovery_factory_.ForgeNextHidDiscovery();
     ble_discovery_ = scoped_fake_discovery_factory_.ForgeNextBleDiscovery();
+    cable_discovery_ = scoped_fake_discovery_factory_.ForgeNextCableDiscovery();
     nfc_discovery_ = scoped_fake_discovery_factory_.ForgeNextNfcDiscovery();
+  }
+
+  CtapGetAssertionRequest CreateTestRequestWithCableExtension() {
+    CtapGetAssertionRequest request(test_data::kRelyingPartyId,
+                                    test_data::kClientDataHash);
+    request.SetCableExtension({});
+    return request;
   }
 
   std::unique_ptr<GetAssertionRequestHandler> CreateGetAssertionHandlerU2f() {
@@ -92,6 +99,9 @@ class FidoGetAssertionHandlerTest : public ::testing::Test {
       discovery()->WaitForCallToStartAndSimulateSuccess();
     if (base::ContainsKey(transports, Transport::kBluetoothLowEnergy))
       ble_discovery()->WaitForCallToStartAndSimulateSuccess();
+    if (base::ContainsKey(transports,
+                          Transport::kCloudAssistedBluetoothLowEnergy))
+      cable_discovery()->WaitForCallToStartAndSimulateSuccess();
     if (base::ContainsKey(transports, Transport::kNearFieldCommunication))
       nfc_discovery()->WaitForCallToStartAndSimulateSuccess();
 
@@ -102,6 +112,9 @@ class FidoGetAssertionHandlerTest : public ::testing::Test {
       EXPECT_FALSE(discovery()->is_start_requested());
     if (!base::ContainsKey(transports, Transport::kBluetoothLowEnergy))
       EXPECT_FALSE(ble_discovery()->is_start_requested());
+    if (!base::ContainsKey(transports,
+                           Transport::kCloudAssistedBluetoothLowEnergy))
+      EXPECT_FALSE(cable_discovery()->is_start_requested());
     if (!base::ContainsKey(transports, Transport::kNearFieldCommunication))
       EXPECT_FALSE(nfc_discovery()->is_start_requested());
 
@@ -118,7 +131,7 @@ class FidoGetAssertionHandlerTest : public ::testing::Test {
   void ExpectAllTransportsAreAllowedForRequest(
       GetAssertionRequestHandler* request_handler) {
     ExpectAllowedTransportsForRequestAre(request_handler,
-                                         GetTestableTransportProtocols());
+                                         GetAllTransportProtocols());
   }
 
   void InitFeatureListAndDisableCtapFlag() {
@@ -127,6 +140,7 @@ class FidoGetAssertionHandlerTest : public ::testing::Test {
 
   test::FakeFidoDiscovery* discovery() const { return discovery_; }
   test::FakeFidoDiscovery* ble_discovery() const { return ble_discovery_; }
+  test::FakeFidoDiscovery* cable_discovery() const { return cable_discovery_; }
   test::FakeFidoDiscovery* nfc_discovery() const { return nfc_discovery_; }
   TestGetAssertionRequestCallback& get_assertion_callback() {
     return get_assertion_cb_;
@@ -156,11 +170,13 @@ class FidoGetAssertionHandlerTest : public ::testing::Test {
   test::ScopedFakeFidoDiscoveryFactory scoped_fake_discovery_factory_;
   test::FakeFidoDiscovery* discovery_;
   test::FakeFidoDiscovery* ble_discovery_;
+  test::FakeFidoDiscovery* cable_discovery_;
   test::FakeFidoDiscovery* nfc_discovery_;
+  scoped_refptr<::testing::NiceMock<MockBluetoothAdapter>> mock_adapter_;
   std::unique_ptr<MockFidoDevice> mock_platform_device_;
   TestGetAssertionRequestCallback get_assertion_cb_;
   base::flat_set<FidoTransportProtocol> supported_transports_ =
-      GetTestableTransportProtocols();
+      GetAllTransportProtocols();
 };
 
 TEST_F(FidoGetAssertionHandlerTest, TransportAvailabilityInfo) {
@@ -330,18 +346,18 @@ TEST_F(FidoGetAssertionHandlerTest, IncorrectUserEntity) {
 
 TEST_F(FidoGetAssertionHandlerTest,
        AllTransportsAllowedIfAllowCredentialsListUndefined) {
+  auto request = CreateTestRequestWithCableExtension();
+  EXPECT_CALL(*mock_adapter_, IsPresent()).WillOnce(::testing::Return(true));
   auto request_handler =
-      CreateGetAssertionHandlerWithRequest(CtapGetAssertionRequest(
-          test_data::kRelyingPartyId, test_data::kClientDataHash));
+      CreateGetAssertionHandlerWithRequest(std::move(request));
   ExpectAllTransportsAreAllowedForRequest(request_handler.get());
 }
 
 TEST_F(FidoGetAssertionHandlerTest,
        AllTransportsAllowedIfAllowCredentialsListIsEmpty) {
-  CtapGetAssertionRequest request(test_data::kRelyingPartyId,
-                                  test_data::kClientDataHash);
+  auto request = CreateTestRequestWithCableExtension();
   request.SetAllowList({});
-
+  EXPECT_CALL(*mock_adapter_, IsPresent()).WillOnce(::testing::Return(true));
   auto request_handler =
       CreateGetAssertionHandlerWithRequest(std::move(request));
   ExpectAllTransportsAreAllowedForRequest(request_handler.get());
@@ -349,8 +365,7 @@ TEST_F(FidoGetAssertionHandlerTest,
 
 TEST_F(FidoGetAssertionHandlerTest,
        AllTransportsAllowedIfHasAllowedCredentialWithEmptyTransportsList) {
-  CtapGetAssertionRequest request(test_data::kRelyingPartyId,
-                                  test_data::kClientDataHash);
+  auto request = CreateTestRequestWithCableExtension();
   request.SetAllowList({
       {CredentialType::kPublicKey,
        fido_parsing_utils::Materialize(
@@ -360,6 +375,7 @@ TEST_F(FidoGetAssertionHandlerTest,
        fido_parsing_utils::Materialize(kBogusCredentialId)},
   });
 
+  EXPECT_CALL(*mock_adapter_, IsPresent()).WillOnce(::testing::Return(true));
   auto request_handler =
       CreateGetAssertionHandlerWithRequest(std::move(request));
   ExpectAllTransportsAreAllowedForRequest(request_handler.get());
@@ -367,8 +383,7 @@ TEST_F(FidoGetAssertionHandlerTest,
 
 TEST_F(FidoGetAssertionHandlerTest,
        AllowedTransportsAreUnionOfTransportsLists) {
-  CtapGetAssertionRequest request(test_data::kRelyingPartyId,
-                                  test_data::kClientDataHash);
+  auto request = CreateTestRequestWithCableExtension();
   request.SetAllowList({
       {CredentialType::kPublicKey,
        fido_parsing_utils::Materialize(
@@ -380,12 +395,47 @@ TEST_F(FidoGetAssertionHandlerTest,
         FidoTransportProtocol::kNearFieldCommunication}},
   });
 
+  EXPECT_CALL(*mock_adapter_, IsPresent()).WillOnce(::testing::Return(true));
   auto request_handler =
       CreateGetAssertionHandlerWithRequest(std::move(request));
   ExpectAllowedTransportsForRequestAre(
       request_handler.get(), {FidoTransportProtocol::kBluetoothLowEnergy,
                               FidoTransportProtocol::kInternal,
                               FidoTransportProtocol::kNearFieldCommunication});
+}
+
+TEST_F(FidoGetAssertionHandlerTest,
+       CableDisabledIfAllowCredentialsListUndefinedButCableExtensionMissing) {
+  CtapGetAssertionRequest request(test_data::kRelyingPartyId,
+                                  test_data::kClientDataHash);
+  ASSERT_FALSE(!!request.cable_extension());
+  EXPECT_CALL(*mock_adapter_, IsPresent()).WillOnce(::testing::Return(true));
+  auto request_handler =
+      CreateGetAssertionHandlerWithRequest(std::move(request));
+  ExpectAllowedTransportsForRequestAre(
+      request_handler.get(), {FidoTransportProtocol::kBluetoothLowEnergy,
+                              FidoTransportProtocol::kUsbHumanInterfaceDevice,
+                              FidoTransportProtocol::kNearFieldCommunication,
+                              FidoTransportProtocol::kInternal});
+}
+
+TEST_F(FidoGetAssertionHandlerTest,
+       CableDisabledIfExplicitlyAllowedButCableExtensionMissing) {
+  CtapGetAssertionRequest request(test_data::kRelyingPartyId,
+                                  test_data::kClientDataHash);
+  ASSERT_FALSE(!!request.cable_extension());
+  request.SetAllowList({
+      {CredentialType::kPublicKey,
+       fido_parsing_utils::Materialize(
+           test_data::kTestGetAssertionCredentialId),
+       {FidoTransportProtocol::kCloudAssistedBluetoothLowEnergy,
+        FidoTransportProtocol::kUsbHumanInterfaceDevice}},
+  });
+
+  auto request_handler =
+      CreateGetAssertionHandlerWithRequest(std::move(request));
+  ExpectAllowedTransportsForRequestAre(
+      request_handler.get(), {FidoTransportProtocol::kUsbHumanInterfaceDevice});
 }
 
 TEST_F(FidoGetAssertionHandlerTest, SupportedTransportsAreOnlyBleAndNfc) {
@@ -395,29 +445,29 @@ TEST_F(FidoGetAssertionHandlerTest, SupportedTransportsAreOnlyBleAndNfc) {
   };
 
   set_supported_transports(kBleAndNfc);
-
-  auto request_handler =
-      CreateGetAssertionHandlerWithRequest(CtapGetAssertionRequest(
-          test_data::kRelyingPartyId, test_data::kClientDataHash));
+  EXPECT_CALL(*mock_adapter_, IsPresent()).WillOnce(::testing::Return(true));
+  auto request_handler = CreateGetAssertionHandlerWithRequest(
+      CreateTestRequestWithCableExtension());
   ExpectAllowedTransportsForRequestAre(request_handler.get(), kBleAndNfc);
 }
 
-TEST_F(FidoGetAssertionHandlerTest, SupportedTransportsAreOnlyUsbAndInternal) {
-  const base::flat_set<FidoTransportProtocol> kUsbAndInternal = {
+TEST_F(FidoGetAssertionHandlerTest,
+       SupportedTransportsAreOnlyCableAndInternal) {
+  const base::flat_set<FidoTransportProtocol> kCableAndInternal = {
       FidoTransportProtocol::kCloudAssistedBluetoothLowEnergy,
       FidoTransportProtocol::kInternal,
   };
 
-  set_supported_transports(kUsbAndInternal);
-  auto request_handler =
-      CreateGetAssertionHandlerWithRequest(CtapGetAssertionRequest(
-          test_data::kRelyingPartyId, test_data::kClientDataHash));
-  ExpectAllowedTransportsForRequestAre(request_handler.get(), kUsbAndInternal);
+  EXPECT_CALL(*mock_adapter_, IsPresent()).WillOnce(::testing::Return(true));
+  set_supported_transports(kCableAndInternal);
+  auto request_handler = CreateGetAssertionHandlerWithRequest(
+      CreateTestRequestWithCableExtension());
+  ExpectAllowedTransportsForRequestAre(request_handler.get(),
+                                       kCableAndInternal);
 }
 
 TEST_F(FidoGetAssertionHandlerTest, SuccessWithOnlyUsbTransportAllowed) {
-  CtapGetAssertionRequest request(test_data::kRelyingPartyId,
-                                  test_data::kClientDataHash);
+  auto request = CreateTestRequestWithCableExtension();
   request.SetAllowList({
       {CredentialType::kPublicKey,
        fido_parsing_utils::Materialize(
@@ -449,8 +499,7 @@ TEST_F(FidoGetAssertionHandlerTest, SuccessWithOnlyUsbTransportAllowed) {
 }
 
 TEST_F(FidoGetAssertionHandlerTest, SuccessWithOnlyBleTransportAllowed) {
-  CtapGetAssertionRequest request(test_data::kRelyingPartyId,
-                                  test_data::kClientDataHash);
+  auto request = CreateTestRequestWithCableExtension();
   request.SetAllowList({
       {CredentialType::kPublicKey,
        fido_parsing_utils::Materialize(
@@ -459,7 +508,7 @@ TEST_F(FidoGetAssertionHandlerTest, SuccessWithOnlyBleTransportAllowed) {
   });
 
   set_supported_transports({FidoTransportProtocol::kBluetoothLowEnergy});
-
+  EXPECT_CALL(*mock_adapter_, IsPresent()).WillOnce(::testing::Return(true));
   auto request_handler =
       CreateGetAssertionHandlerWithRequest(std::move(request));
 
@@ -483,8 +532,7 @@ TEST_F(FidoGetAssertionHandlerTest, SuccessWithOnlyBleTransportAllowed) {
 }
 
 TEST_F(FidoGetAssertionHandlerTest, SuccessWithOnlyNfcTransportAllowed) {
-  CtapGetAssertionRequest request(test_data::kRelyingPartyId,
-                                  test_data::kClientDataHash);
+  auto request = CreateTestRequestWithCableExtension();
   request.SetAllowList({
       {CredentialType::kPublicKey,
        fido_parsing_utils::Materialize(
@@ -517,8 +565,7 @@ TEST_F(FidoGetAssertionHandlerTest, SuccessWithOnlyNfcTransportAllowed) {
 }
 
 TEST_F(FidoGetAssertionHandlerTest, SuccessWithOnlyInternalTransportAllowed) {
-  CtapGetAssertionRequest request(test_data::kRelyingPartyId,
-                                  test_data::kClientDataHash);
+  auto request = CreateTestRequestWithCableExtension();
   request.SetAllowList({
       {CredentialType::kPublicKey,
        fido_parsing_utils::Materialize(
@@ -561,8 +608,7 @@ TEST_F(FidoGetAssertionHandlerTest, SuccessWithOnlyInternalTransportAllowed) {
 TEST_F(FidoGetAssertionHandlerTest, IncorrectTransportType) {
   // GetAssertion request that expects GetAssertion call for credential
   // |CredentialType::kPublicKey| to be signed with Cable authenticator.
-  CtapGetAssertionRequest request(test_data::kRelyingPartyId,
-                                  test_data::kClientDataHash);
+  auto request = CreateTestRequestWithCableExtension();
   request.SetAllowList({
       {CredentialType::kPublicKey,
        fido_parsing_utils::Materialize(

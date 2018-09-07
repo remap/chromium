@@ -81,6 +81,7 @@ customBackgrounds.IDS = {
   EDIT_BG_DIALOG: 'edit-bg-dialog',
   EDIT_BG_DIVIDER: 'edit-bg-divider',
   EDIT_BG_GEAR: 'edit-bg-gear',
+  EDIT_BG_MENU: 'edit-bg-menu',
   MSG_BOX: 'message-box',
   MSG_BOX_MSG: 'message-box-message',
   MSG_BOX_LINK: 'message-box-link',
@@ -510,21 +511,33 @@ customBackgrounds.showCollectionSelectionDialog = function(collectionsSource) {
         event.stopPropagation();
         tileInteraction(event);
       }
-
-      var target = null;
-      if (event.keyCode == customBackgrounds.KEYCODES.LEFT) {
-        target = customBackgrounds.getNextTile(-1, 0, this.dataset.tile_num);
-      } else if (event.keyCode == customBackgrounds.KEYCODES.UP) {
-        target = customBackgrounds.getNextTile(0, -1, this.dataset.tile_num);
-      } else if (event.keyCode == customBackgrounds.KEYCODES.RIGHT) {
-        target = customBackgrounds.getNextTile(1, 0, this.dataset.tile_num);
-      } else if (event.keyCode == customBackgrounds.KEYCODES.DOWN) {
-        target = customBackgrounds.getNextTile(0, 1, this.dataset.tile_num);
-      }
-      if (target) {
+      // Handle arrow key navigation.
+      else if (
+          event.keyCode === customBackgrounds.KEYCODES.LEFT ||
+          event.keyCode === customBackgrounds.KEYCODES.UP ||
+          event.keyCode === customBackgrounds.KEYCODES.RIGHT ||
+          event.keyCode === customBackgrounds.KEYCODES.DOWN) {
         event.preventDefault();
         event.stopPropagation();
-        target.focus();
+
+        let target = null;
+        if (event.keyCode === customBackgrounds.KEYCODES.LEFT) {
+          target = customBackgrounds.getNextTile(
+              document.documentElement.classList.contains('rtl') ? 1 : -1, 0,
+              this.dataset.tile_num);
+        } else if (event.keyCode === customBackgrounds.KEYCODES.UP) {
+          target = customBackgrounds.getNextTile(0, -1, this.dataset.tile_num);
+        } else if (event.keyCode === customBackgrounds.KEYCODES.RIGHT) {
+          target = customBackgrounds.getNextTile(
+              document.documentElement.classList.contains('rtl') ? -1 : 1, 0,
+              this.dataset.tile_num);
+        } else if (event.keyCode === customBackgrounds.KEYCODES.DOWN) {
+          target = customBackgrounds.getNextTile(0, 1, this.dataset.tile_num);
+        }
+        if (target)
+          target.focus();
+        else
+          this.focus();
       }
     };
 
@@ -683,21 +696,29 @@ customBackgrounds.showImageSelectionDialog = function(dialogTitle) {
         event.stopPropagation();
         tileInteraction(event);
       }
-
-      var target = null;
-      if (event.keyCode == customBackgrounds.KEYCODES.LEFT) {
-        target = customBackgrounds.getNextTile(-1, 0, this.dataset.tile_num);
-      } else if (event.keyCode == customBackgrounds.KEYCODES.UP) {
-        target = customBackgrounds.getNextTile(0, -1, this.dataset.tile_num);
-      } else if (event.keyCode == customBackgrounds.KEYCODES.RIGHT) {
-        target = customBackgrounds.getNextTile(1, 0, this.dataset.tile_num);
-      } else if (event.keyCode == customBackgrounds.KEYCODES.DOWN) {
-        target = customBackgrounds.getNextTile(0, 1, this.dataset.tile_num);
-      }
-      if (target) {
+      // Handle arrow key navigation.
+      else if (
+          event.keyCode === customBackgrounds.KEYCODES.LEFT ||
+          event.keyCode === customBackgrounds.KEYCODES.UP ||
+          event.keyCode === customBackgrounds.KEYCODES.RIGHT ||
+          event.keyCode === customBackgrounds.KEYCODES.DOWN) {
         event.preventDefault();
         event.stopPropagation();
-        target.focus();
+
+        let target = null;
+        if (event.keyCode == customBackgrounds.KEYCODES.LEFT) {
+          target = customBackgrounds.getNextTile(-1, 0, this.dataset.tile_num);
+        } else if (event.keyCode == customBackgrounds.KEYCODES.UP) {
+          target = customBackgrounds.getNextTile(0, -1, this.dataset.tile_num);
+        } else if (event.keyCode == customBackgrounds.KEYCODES.RIGHT) {
+          target = customBackgrounds.getNextTile(1, 0, this.dataset.tile_num);
+        } else if (event.keyCode == customBackgrounds.KEYCODES.DOWN) {
+          target = customBackgrounds.getNextTile(0, 1, this.dataset.tile_num);
+        }
+        if (target)
+          target.focus();
+        else
+          this.focus();
       }
     };
 
@@ -776,9 +797,9 @@ customBackgrounds.getNextOption = function(current_index, deltaY) {
       idx = 3;
     if (idx === 4)
       idx = 0;
-  } while (entries[idx].hidden ||
+  } while (idx !== current_index && (entries[idx].hidden ||
            entries[idx].classList.contains(
-               customBackgrounds.CLASSES.OPTION_DISABLED));
+               customBackgrounds.CLASSES.OPTION_DISABLED)));
   return entries[idx];
 };
 
@@ -818,8 +839,9 @@ customBackgrounds.init = function(showErrorNotification) {
 
   // Find the first menu option that is not hidden or disabled.
   let findFirstMenuOption = () => {
-    for (let i = 1; i < editDialog.children.length; i++) {
-      let option = editDialog.children[i];
+    let editMenu = $(customBackgrounds.IDS.EDIT_BG_MENU);
+    for (let i = 1; i < editMenu.children.length; i++) {
+      let option = editMenu.children[i];
       if (option.classList.contains(customBackgrounds.CLASSES.OPTION)
           && !option.hidden && !option.classList.contains(
               customBackgrounds.CLASSES.OPTION_DISABLED)) {
@@ -829,9 +851,11 @@ customBackgrounds.init = function(showErrorNotification) {
     }
   };
 
-  $(customBackgrounds.IDS.EDIT_BG).onkeyup = function(event) {
+  $(customBackgrounds.IDS.EDIT_BG).onkeydown = function(event) {
     if (event.keyCode === customBackgrounds.KEYCODES.ENTER ||
         event.keyCode === customBackgrounds.KEYCODES.SPACE) {
+      // no default behavior for ENTER
+      event.preventDefault();
       editDialog.classList.remove(customBackgrounds.CLASSES.MOUSE_NAV);
       editBackgroundInteraction();
       findFirstMenuOption();
@@ -849,7 +873,7 @@ customBackgrounds.init = function(showErrorNotification) {
     editDialog.close();
   };
   editDialog.onclick = function(event) {
-    if (event.target == editDialog)
+    if (event.target === editDialog)
       editDialogInteraction();
   };
   editDialog.onkeydown = function(event) {
@@ -903,8 +927,12 @@ customBackgrounds.initCustomLinksItems = function() {
     ntpApiHandle.logEvent(BACKGROUND_CUSTOMIZATION_LOG_TYPE
                               .NTP_CUSTOMIZE_RESTORE_SHORTCUTS_CLICKED);
   };
-  $(customBackgrounds.IDS.CUSTOM_LINKS_RESTORE_DEFAULT).onclick =
-      customLinksRestoreDefaultInteraction;
+  $(customBackgrounds.IDS.CUSTOM_LINKS_RESTORE_DEFAULT).onclick = () => {
+    if (!$(customBackgrounds.IDS.CUSTOM_LINKS_RESTORE_DEFAULT).classList.
+        contains(customBackgrounds.CLASSES.OPTION_DISABLED)) {
+      customLinksRestoreDefaultInteraction();
+    }
+  };
   $(customBackgrounds.IDS.CUSTOM_LINKS_RESTORE_DEFAULT).onkeydown = function(
       event) {
     if (event.keyCode === customBackgrounds.KEYCODES.ENTER) {
@@ -978,7 +1006,12 @@ customBackgrounds.initCustomBackgrounds = function(showErrorNotification) {
         BACKGROUND_CUSTOMIZATION_LOG_TYPE.NTP_CUSTOMIZE_LOCAL_IMAGE_CLICKED);
   };
 
-  $(customBackgrounds.IDS.UPLOAD_IMAGE).onclick = uploadImageInteraction;
+  $(customBackgrounds.IDS.UPLOAD_IMAGE).onclick = () => {
+    if (!$(customBackgrounds.IDS.UPLOAD_IMAGE).classList.contains(
+        customBackgrounds.CLASSES.OPTION_DISABLED)) {
+      uploadImageInteraction();
+    }
+  } ;
   $(customBackgrounds.IDS.UPLOAD_IMAGE).onkeydown = function(event) {
     if (event.keyCode === customBackgrounds.KEYCODES.ENTER) {
       uploadImageInteraction(event);
@@ -1007,7 +1040,12 @@ customBackgrounds.initCustomBackgrounds = function(showErrorNotification) {
     ntpApiHandle.logEvent(BACKGROUND_CUSTOMIZATION_LOG_TYPE
                               .NTP_CUSTOMIZE_RESTORE_BACKGROUND_CLICKED);
   };
-  $(customBackgrounds.IDS.RESTORE_DEFAULT).onclick = restoreDefaultInteraction;
+  $(customBackgrounds.IDS.RESTORE_DEFAULT).onclick = () => {
+    if (!$(customBackgrounds.IDS.RESTORE_DEFAULT).classList.contains(
+        customBackgrounds.CLASSES.OPTION_DISABLED)) {
+      restoreDefaultInteraction();
+    }
+  };
   $(customBackgrounds.IDS.RESTORE_DEFAULT).onkeydown = function(event) {
     if (event.keyCode === customBackgrounds.KEYCODES.ENTER) {
       restoreDefaultInteraction(event);

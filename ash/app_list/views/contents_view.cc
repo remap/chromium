@@ -314,6 +314,14 @@ void ContentsView::UpdateExpandArrowOpacity(double progress,
   if (!expand_arrow_view_)
     return;
 
+  // Don't show |expand_arrow_view_| when the home launcher gestures are
+  // disabled in tablet mode.
+  if (app_list_view_->IsHomeLauncherEnabledInTabletMode() &&
+      !features::IsHomeLauncherGesturesEnabled()) {
+    expand_arrow_view_->layer()->SetOpacity(0);
+    return;
+  }
+
   if (current_state == ash::AppListState::kStateSearchResults &&
       (target_state == ash::AppListState::kStateStart ||
        target_state == ash::AppListState::kStateApps)) {
@@ -454,7 +462,13 @@ gfx::Size ContentsView::GetDefaultContentsSize() const {
 }
 
 gfx::Size ContentsView::CalculatePreferredSize() const {
-  return GetWorkAreaSize();
+  // If shelf is set auto-hide, the work area will become fullscreen. The bottom
+  // row of apps will be partially blocked by the shelf when it becomes shown.
+  // So always cut the shelf bounds from display bounds.
+  gfx::Size size = GetDisplaySize();
+  if (!app_list_view_->is_side_shelf())
+    size.set_height(size.height() - AppListConfig::instance().shelf_height());
+  return size;
 }
 
 void ContentsView::Layout() {
@@ -496,13 +510,6 @@ void ContentsView::TransitionChanged() {
 }
 
 void ContentsView::TransitionEnded() {}
-
-gfx::Size ContentsView::GetWorkAreaSize() const {
-  return display::Screen::GetScreen()
-      ->GetDisplayNearestView(GetWidget()->GetNativeView())
-      .work_area()
-      .size();
-}
 
 gfx::Size ContentsView::GetDisplaySize() const {
   return display::Screen::GetScreen()

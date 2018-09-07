@@ -30,6 +30,10 @@ const base::Feature kMojoBlobURLs{"MojoBlobURLs",
 const base::Feature kNestedWorkers{"NestedWorkers",
                                    base::FEATURE_ENABLED_BY_DEFAULT};
 
+const base::Feature kServiceWorkerImportedScriptUpdateCheck{
+    "ServiceWorkerImportedScriptUpdateCheck",
+    base::FEATURE_DISABLED_BY_DEFAULT};
+
 // Enable new service worker glue for NetworkService. Can be
 // enabled independently of NetworkService.
 const base::Feature kServiceWorkerServicification{
@@ -63,6 +67,10 @@ const base::Feature kStopInBackground {
 // bug: https://crbug.com/822954. "stop" is a legacy name.
 const base::Feature kStopNonTimersInBackground{
     "stop-non-timers-in-background", base::FEATURE_DISABLED_BY_DEFAULT};
+
+// Writable files and native filesystem access. https://crbug.com/853326
+const base::Feature kWritableFilesAPI{"WritableFilesAPI",
+                                      base::FEATURE_DISABLED_BY_DEFAULT};
 
 const char kAutofillPreviewStyleExperimentBgColorParameterName[] = "bg_color";
 

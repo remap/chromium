@@ -7,7 +7,7 @@
 #include "base/metrics/histogram_macros.h"
 #include "components/viz/common/gpu/context_lost_reason.h"
 
-namespace ui {
+namespace ws {
 namespace command_buffer_metrics {
 
 namespace {
@@ -40,6 +40,9 @@ void RecordContextLost(ContextType type, viz::ContextLostReason reason) {
       break;
     case ContextType::WEBGL:
       UMA_HISTOGRAM_ENUMERATION("GPU.ContextLost.WebGL", reason);
+      break;
+    case ContextType::WEBGPU:
+      UMA_HISTOGRAM_ENUMERATION("GPU.ContextLost.WebGPU", reason);
       break;
     case ContextType::MEDIA:
       UMA_HISTOGRAM_ENUMERATION("GPU.ContextLost.Media", reason);
@@ -78,6 +81,8 @@ std::string ContextTypeToString(ContextType type) {
       return "VideoCapture";
     case ContextType::WEBGL:
       return "WebGL";
+    case ContextType::WEBGPU:
+      return "WebGPU";
     case ContextType::MEDIA:
       return "Media";
     case ContextType::MUS_CLIENT:
@@ -102,4 +107,4 @@ void UmaRecordContextLost(ContextType type,
 }
 
 }  // namespace command_buffer_metrics
-}  // namespace ui
+}  // namespace ws

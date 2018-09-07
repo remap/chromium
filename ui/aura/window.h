@@ -66,6 +66,7 @@ class ScopedKeyboardHook;
 class WindowDelegate;
 class WindowObserver;
 class WindowPortForShutdown;
+class WindowTargeter;
 class WindowTreeHost;
 
 // Defined in class_property.h (which we do not include)
@@ -217,9 +218,9 @@ class AURA_EXPORT Window : public ui::LayerDelegate,
 
   // Sets a new event-targeter for the window, and returns the previous
   // event-targeter.
-  std::unique_ptr<ui::EventTargeter> SetEventTargeter(
-      std::unique_ptr<ui::EventTargeter> targeter);
-  ui::EventTargeter* targeter() { return targeter_.get(); }
+  std::unique_ptr<WindowTargeter> SetEventTargeter(
+      std::unique_ptr<WindowTargeter> targeter);
+  WindowTargeter* targeter() { return targeter_.get(); }
 
   // Changes the bounds of the window. If present, the window's parent's
   // LayoutManager may adjust the bounds.
@@ -486,15 +487,6 @@ class AURA_EXPORT Window : public ui::LayerDelegate,
   // Asks the delegate to paint the window.
   void Paint(const ui::PaintContext& context);
 
-  // Gets a Window (either this one or a subwindow) containing |local_point|.
-  // If |return_tightest| is true, returns the tightest-containing (i.e.
-  // furthest down the hierarchy) Window containing the point; otherwise,
-  // returns the loosest.  If |for_event_handling| is true, then hit-test masks
-  // are honored; otherwise, only bounds checks are performed.
-  Window* GetWindowForPoint(const gfx::Point& local_point,
-                            bool return_tightest,
-                            bool for_event_handling);
-
   // Implementation of RemoveChild(). If |child| is being removed as the result
   // of an add, |new_parent| is the new parent |child| is going to be parented
   // to.
@@ -634,7 +626,7 @@ class AURA_EXPORT Window : public ui::LayerDelegate,
   bool transparent_;
 
   std::unique_ptr<LayoutManager> layout_manager_;
-  std::unique_ptr<ui::EventTargeter> targeter_;
+  std::unique_ptr<WindowTargeter> targeter_;
 
   // Makes the window pass all events through to any windows behind it.
   ws::mojom::EventTargetingPolicy event_targeting_policy_;

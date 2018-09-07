@@ -2832,11 +2832,13 @@ applicationCommandEndpoint:(id<ApplicationCommands>)applicationCommandEndpoint {
 
   CGRect omniboxFrame =
       [NamedGuide guideWithName:kOmniboxGuide view:self.view].layoutFrame;
-  [_findBarController addFindBarView:animate
-                            intoView:self.view
-                           withFrame:referenceFrame
-                      alignWithFrame:omniboxFrame
-                          selectText:selectText];
+  [_findBarController
+      addFindBarViewToParentView:self.view
+                usingToolbarView:_primaryToolbarCoordinator.viewController.view
+                  alignWithFrame:omniboxFrame
+                           frame:referenceFrame
+                      selectText:selectText
+                        animated:animate];
   [self updateFindBar:YES shouldFocus:shouldFocus];
 }
 
@@ -2867,8 +2869,9 @@ applicationCommandEndpoint:(id<ApplicationCommands>)applicationCommandEndpoint {
     (id<UIViewControllerTransitionCoordinator>)coordinator {
   if (![_findBarController isFindInPageShown])
     return;
-  // FindBar uses AutoLayout for compact mode. Only reshow find bar for iPad.
-  if (ShouldShowCompactToolbar())
+  // FindBar uses AutoLayout under UIRefreshPhase1Enabled, and also for compact
+  // mode in legacy view. Only reshow find bar for iPad in legacy view.
+  if (IsUIRefreshPhase1Enabled() || ShouldShowCompactToolbar())
     return;
 
   // Record focused state.
@@ -3670,7 +3673,10 @@ applicationCommandEndpoint:(id<ApplicationCommands>)applicationCommandEndpoint {
           l10n_util::GetNSStringWithFixup(IDS_IOS_CONTENT_CONTEXT_COPYIMAGE);
       action = ^{
         Record(ACTION_COPY_IMAGE, isImage, isLink);
-        [weakSelf copyImageAtURL:imageUrl referrer:referrer];
+        DCHECK(imageUrl.is_valid());
+        [weakSelf.imageCopier copyImageAtURL:imageUrl
+                                    referrer:referrer
+                                    webState:weakSelf.currentWebState];
       };
       [_contextMenuCoordinator addItemWithTitle:title action:action];
     }
@@ -3835,23 +3841,6 @@ applicationCommandEndpoint:(id<ApplicationCommands>)applicationCommandEndpoint {
   image_fetcher::ImageDataFetcherBlock callback =
       ^(NSData* data, const image_fetcher::RequestMetadata& metadata) {
         [self.imageSaver saveImageData:data withMetadata:metadata];
-      };
-  _imageFetcher->FetchImageDataWebpDecoded(
-      url, callback, web::ReferrerHeaderValueForNavigation(url, referrer),
-      web::PolicyForNavigation(url, referrer));
-}
-
-// Copies the image at the given URL to system's Pasteboard. The referrer is
-// used to download the image.
-- (void)copyImageAtURL:(const GURL&)url
-              referrer:(const web::Referrer&)referrer {
-  DCHECK(url.is_valid());
-
-  ImageCopierSessionID sessionID = [self.imageCopier beginSession];
-
-  image_fetcher::ImageDataFetcherBlock callback =
-      ^(NSData* data, const image_fetcher::RequestMetadata& metadata) {
-        [self.imageCopier endSession:sessionID withImageData:data];
       };
   _imageFetcher->FetchImageDataWebpDecoded(
       url, callback, web::ReferrerHeaderValueForNavigation(url, referrer),

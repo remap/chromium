@@ -4,7 +4,9 @@
 
 #include "ash/app_list/views/suggestion_chip_view.h"
 
+#include <algorithm>
 #include <memory>
+#include <utility>
 
 #include "ash/assistant/ui/assistant_ui_constants.h"
 #include "ash/public/cpp/app_list/app_list_config.h"
@@ -26,6 +28,7 @@ namespace {
 
 // Assistant specific style:
 constexpr SkColor kAssistantBackgroundColor = SK_ColorWHITE;
+constexpr SkColor kAssistantFocusColor = SkColorSetA(gfx::kGoogleGrey900, 0x14);
 constexpr SkColor kAssistantStrokeColor =
     SkColorSetA(gfx::kGoogleGrey900, 0x24);
 constexpr SkColor kAssistantTextColor = gfx::kGoogleGrey700;
@@ -43,7 +46,6 @@ constexpr int kAppListMaxTextWidth = 192;
 constexpr int kIconMarginDip = 8;
 constexpr int kPaddingDip = 16;
 constexpr int kPreferredHeightDip = 32;
-constexpr int kIconSizeDip = 16;
 
 }  // namespace
 
@@ -61,10 +63,8 @@ SuggestionChipView::SuggestionChipView(const Params& params,
       icon_view_(new views::ImageView()),
       text_view_(new views::Label()),
       assistant_style_(params.assistant_style) {
-  if (!assistant_style_) {
-    SetFocusBehavior(FocusBehavior::ALWAYS);
-    SetInkDropMode(InkDropHostView::InkDropMode::ON);
-  }
+  SetFocusBehavior(FocusBehavior::ALWAYS);
+  SetInkDropMode(InkDropHostView::InkDropMode::ON);
   InitLayout(params);
 }
 
@@ -102,8 +102,10 @@ void SuggestionChipView::InitLayout(const Params& params) {
       views::BoxLayout::CrossAxisAlignment::CROSS_AXIS_ALIGNMENT_CENTER);
 
   // Icon.
-  icon_view_->SetImageSize(gfx::Size(kIconSizeDip, kIconSizeDip));
-  icon_view_->SetPreferredSize(gfx::Size(kIconSizeDip, kIconSizeDip));
+  const int icon_size =
+      AppListConfig::instance().recommended_app_icon_dimension();
+  icon_view_->SetImageSize(gfx::Size(icon_size, icon_size));
+  icon_view_->SetPreferredSize(gfx::Size(icon_size, icon_size));
 
   if (params.icon)
     icon_view_->SetImage(params.icon.value());
@@ -131,10 +133,17 @@ void SuggestionChipView::OnPaintBackground(gfx::Canvas* canvas) {
   gfx::Rect bounds = GetContentsBounds();
 
   // Background.
-  flags.setColor(assistant_style_ ? kAssistantBackgroundColor
-                                  : kAppListBackgroundColor);
-  canvas->DrawRoundRect(bounds, height() / 2, flags);
+  if (HasFocus()) {
+    flags.setColor(assistant_style_ ? kAssistantFocusColor
+                                    : kAppListFocusColor);
+    canvas->DrawRoundRect(bounds, height() / 2, flags);
+  } else {
+    flags.setColor(assistant_style_ ? kAssistantBackgroundColor
+                                    : kAppListBackgroundColor);
+    canvas->DrawRoundRect(bounds, height() / 2, flags);
+  }
 
+  // Border.
   if (assistant_style_) {
     // Stroke should be drawn within our contents bounds.
     bounds.Inset(gfx::Insets(kAssistantStrokeWidthDip));
@@ -143,12 +152,6 @@ void SuggestionChipView::OnPaintBackground(gfx::Canvas* canvas) {
     flags.setColor(kAssistantStrokeColor);
     flags.setStrokeWidth(kAssistantStrokeWidthDip);
     flags.setStyle(cc::PaintFlags::Style::kStroke_Style);
-    canvas->DrawRoundRect(bounds, height() / 2, flags);
-    return;
-  }
-
-  if (HasFocus()) {
-    flags.setColor(kAppListFocusColor);
     canvas->DrawRoundRect(bounds, height() / 2, flags);
   }
 }

@@ -108,6 +108,9 @@ struct COMPONENT_EXPORT(NETWORK_CPP_BASE) ResourceResponseInfo {
   // Remote address of the socket which fetched this resource.
   net::HostPortPair socket_address;
 
+  // True if the response came from cache.
+  bool was_fetched_via_cache = false;
+
   // True if the response was delivered through a proxy.
   bool was_fetched_via_proxy;
 
@@ -124,9 +127,8 @@ struct COMPONENT_EXPORT(NETWORK_CPP_BASE) ResourceResponseInfo {
   // ServiceWorkerResponseInfo::url_list_via_service_worker().
   std::vector<GURL> url_list_via_service_worker;
 
-  // The type of the response, if it was returned by a service worker. This is
-  // kDefault if the response was not returned by a service worker.
-  mojom::FetchResponseType response_type_via_service_worker;
+  // https://fetch.spec.whatwg.org/#concept-response-type
+  mojom::FetchResponseType response_type;
 
   // The time immediately before starting ServiceWorker. If the response is not
   // provided by the ServiceWorker, kept empty.

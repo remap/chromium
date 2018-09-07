@@ -17,7 +17,9 @@
 
 namespace device {
 
-FidoBleDiscovery::FidoBleDiscovery() : weak_factory_(this) {}
+FidoBleDiscovery::FidoBleDiscovery()
+    : FidoBleDiscoveryBase(FidoTransportProtocol::kBluetoothLowEnergy),
+      weak_factory_(this) {}
 
 FidoBleDiscovery::~FidoBleDiscovery() = default;
 
@@ -81,9 +83,11 @@ void FidoBleDiscovery::DeviceRemoved(BluetoothAdapter* adapter,
 
 void FidoBleDiscovery::AdapterPoweredChanged(BluetoothAdapter* adapter,
                                              bool powered) {
-  if (!observer_)
-    return;
-  observer_->BluetoothAdapterPowerChanged(powered);
+  // If Bluetooth adapter is powered on, resume scanning for nearby FIDO
+  // devices. Previously inactive discovery sessions would be terminated upon
+  // invocation of OnSetPowered().
+  if (powered)
+    OnSetPowered();
 }
 
 }  // namespace device

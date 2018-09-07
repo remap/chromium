@@ -14,7 +14,6 @@
 #include "components/favicon/core/favicon_service.h"
 #include "components/grit/components_resources.h"
 #include "components/grit/components_scaled_resources.h"
-#include "components/nux/email/constants.h"
 #include "components/nux/show_promo_delegate.h"
 #include "components/prefs/pref_service.h"
 #include "components/strings/grit/components_strings.h"
@@ -142,6 +141,17 @@ void EmailHandler::AddSources(content::WebUIDataSource* html_source) {
 
   // Add required resources.
   html_source->AddResourcePath("email", IDR_NUX_EMAIL_HTML);
+  html_source->AddResourcePath("email/nux_email.js", IDR_NUX_EMAIL_JS);
+
+  html_source->AddResourcePath("email/nux_email_proxy.html",
+                               IDR_NUX_EMAIL_PROXY_HTML);
+  html_source->AddResourcePath("email/nux_email_proxy.js",
+                               IDR_NUX_EMAIL_PROXY_JS);
+
+  html_source->AddResourcePath("email/email_chooser.html",
+                               IDR_NUX_EMAIL_CHOOSER_HTML);
+  html_source->AddResourcePath("email/email_chooser.js",
+                               IDR_NUX_EMAIL_CHOOSER_JS);
 
   // Add icons
 }

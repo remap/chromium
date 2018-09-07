@@ -9,9 +9,11 @@
 #include "ash/public/interfaces/constants.mojom.h"
 #include "base/barrier_closure.h"
 #include "base/bind.h"
+#include "base/feature_list.h"
 #include "base/i18n/rtl.h"
 #include "base/logging.h"
 #include "base/strings/stringprintf.h"
+#include "base/strings/utf_string_conversions.h"
 #include "base/sys_info.h"
 #include "base/task/post_task.h"
 #include "build/util/webkit_version.h"
@@ -23,10 +25,12 @@
 #include "chromeos/services/assistant/public/proto/settings_ui.pb.h"
 #include "chromeos/services/assistant/service.h"
 #include "chromeos/services/assistant/utils.h"
+#include "chromeos/strings/grit/chromeos_strings.h"
 #include "libassistant/shared/internal_api/assistant_manager_delegate.h"
 #include "libassistant/shared/internal_api/assistant_manager_internal.h"
 #include "libassistant/shared/public/media_manager.h"
 #include "services/service_manager/public/cpp/connector.h"
+#include "ui/base/l10n/l10n_util.h"
 #include "url/gurl.h"
 
 using ActionModule = assistant_client::ActionModule;
@@ -36,12 +40,18 @@ namespace api = ::assistant::api;
 
 namespace chromeos {
 namespace assistant {
+namespace {
 
 constexpr char kWiFiDeviceSettingId[] = "WIFI";
 constexpr char kBluetoothDeviceSettingId[] = "BLUETOOTH";
 constexpr char kVolumeLevelDeviceSettingId[] = "VOLUME_LEVEL";
+constexpr char kTimerFireNotificationGroupId[] = "assistant/timer_fire";
+constexpr char kQueryDeeplinkPrefix[] = "googleassistant://send-query?q=";
+constexpr base::Feature kAssistantTimerNotificationFeature{
+    "ChromeOSAssistantTimerNotification", base::FEATURE_DISABLED_BY_DEFAULT};
 
 constexpr float kDefaultVolumeStep = 0.1f;
+}  // namespace
 
 AssistantManagerServiceImpl::AssistantManagerServiceImpl(
     service_manager::Connector* connector,
@@ -306,6 +316,50 @@ void AssistantManagerServiceImpl::OnConversationTurnFinished(
       base::BindOnce(
           &AssistantManagerServiceImpl::OnConversationTurnFinishedOnMainThread,
           weak_factory_.GetWeakPtr(), resolution));
+}
+
+// TODO(b/113541754): Deprecate this API when the server provides a fallback.
+void AssistantManagerServiceImpl::OnShowContextualQueryFallback() {
+  // Show fallback text.
+  main_thread_task_runner_->PostTask(
+      FROM_HERE,
+      base::BindOnce(&AssistantManagerServiceImpl::OnShowTextOnMainThread,
+                     weak_factory_.GetWeakPtr(),
+                     l10n_util::GetStringUTF8(
+                         IDS_ASSISTANT_SCREEN_CONTEXT_QUERY_FALLBACK_TEXT)));
+
+  // Construct a fallback card.
+  std::stringstream html;
+  html << R"(
+       <html>
+         <head><meta CHARSET='utf-8'></head>
+         <body>
+           <style>
+             * {
+               cursor: default;
+               font-family: Google Sans, sans-serif;
+               user-select: none;
+             }
+             html, body { margin: 0; padding: 0; }
+             div {
+               border: 1px solid rgba(32, 33, 36, 0.08);
+               border-radius: 12px;
+               color: #5F6368;
+               font-size: 13px;
+               padding: 16px;
+               text-align: center;
+             }
+         </style>
+         <div>)"
+       << l10n_util::GetStringUTF8(
+              IDS_ASSISTANT_SCREEN_CONTEXT_QUERY_FALLBACK_CARD)
+       << "</div></body></html>";
+
+  // Show fallback card.
+  main_thread_task_runner_->PostTask(
+      FROM_HERE,
+      base::BindOnce(&AssistantManagerServiceImpl::OnShowHtmlOnMainThread,
+                     weak_factory_.GetWeakPtr(), html.str()));
 }
 
 void AssistantManagerServiceImpl::OnShowHtml(const std::string& html) {
@@ -683,6 +737,38 @@ void AssistantManagerServiceImpl::OnStartFinished() {
   RegisterFallbackMediaHandler();
 }
 
+void AssistantManagerServiceImpl::OnTimerSoundingStarted() {
+  // TODO(llin): Migrate to use the AlarmManager API to better support multiple
+  // timers when the API is available.
+  if (!base::FeatureList::IsEnabled(kAssistantTimerNotificationFeature))
+    return;
+
+  const std::string notification_title =
+      l10n_util::GetStringUTF8(IDS_ASSISTANT_TIMER_NOTIFICATION_TITLE);
+  const std::string notification_content =
+      l10n_util::GetStringUTF8(IDS_ASSISTANT_TIMER_NOTIFICATION_CONTENT);
+  const std::string stop_timer_query =
+      l10n_util::GetStringUTF8(IDS_ASSISTANT_STOP_TIMER_QUERY);
+
+  action::Notification notification(
+      /*title=*/notification_title,
+      /*text=*/notification_content,
+      /*action_url=*/kQueryDeeplinkPrefix + stop_timer_query,
+      /*notification_id=*/{},
+      /*consistency_token=*/{},
+      /*opaque_token=*/{},
+      /*grouping_key=*/kTimerFireNotificationGroupId,
+      /*obfuscated_gaia_id=*/{});
+  OnShowNotification(notification);
+}
+
+void AssistantManagerServiceImpl::OnTimerSoundingFinished() {
+  if (!base::FeatureList::IsEnabled(kAssistantTimerNotificationFeature))
+    return;
+
+  OnNotificationRemoved(kTimerFireNotificationGroupId);
+}
+
 void AssistantManagerServiceImpl::OnConversationTurnStartedOnMainThread(
     bool is_mic_open) {
   interaction_subscribers_.ForAllPtrs([is_mic_open](auto* ptr) {
@@ -724,9 +810,13 @@ void AssistantManagerServiceImpl::OnConversationTurnFinishedOnMainThread(
             mojom::AssistantInteractionResolution::kError);
       });
       break;
-    // The device was not elected to produce a response.
+    // Interaction ended because the device was not selected to produce a
+    // response. This occurs due to multi-device hotword loss.
     case Resolution::DEVICE_NOT_SELECTED:
-      // TODO(b/112952143): handle this case appropriately.
+      interaction_subscribers_.ForAllPtrs([](auto* ptr) {
+        ptr->OnInteractionFinished(
+            mojom::AssistantInteractionResolution::kMultiDeviceHotwordLoss);
+      });
       break;
   }
 }
@@ -866,5 +956,11 @@ void AssistantManagerServiceImpl::SendScreenContextRequest(
   assistant_screenshot_.clear();
 }
 
+std::string AssistantManagerServiceImpl::GetLastSearchSource() {
+  base::AutoLock lock(last_search_source_lock_);
+  auto search_source = last_search_source_;
+  last_search_source_ = std::string();
+  return search_source;
+}
 }  // namespace assistant
 }  // namespace chromeos

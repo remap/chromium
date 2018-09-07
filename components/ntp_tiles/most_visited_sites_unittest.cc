@@ -158,11 +158,11 @@ class MockTopSites : public TopSites {
   MOCK_METHOD3(SetPageThumbnail,
                bool(const GURL& url,
                     const gfx::Image& thumbnail,
-                    const ThumbnailScore& score));
+                    const history::ThumbnailScore& score));
   MOCK_METHOD3(SetPageThumbnailToJPEGBytes,
                bool(const GURL& url,
                     const base::RefCountedMemory* memory,
-                    const ThumbnailScore& score));
+                    const history::ThumbnailScore& score));
   MOCK_METHOD2(GetMostVisitedURLs,
                void(const GetMostVisitedURLsCallback& callback,
                     bool include_forced_urls));
@@ -171,9 +171,9 @@ class MockTopSites : public TopSites {
                     bool prefix_match,
                     scoped_refptr<base::RefCountedMemory>* bytes));
   MOCK_METHOD2(GetPageThumbnailScore,
-               bool(const GURL& url, ThumbnailScore* score));
+               bool(const GURL& url, history::ThumbnailScore* score));
   MOCK_METHOD2(GetTemporaryPageThumbnailScore,
-               bool(const GURL& url, ThumbnailScore* score));
+               bool(const GURL& url, history::ThumbnailScore* score));
   MOCK_METHOD0(SyncWithHistory, void());
   MOCK_CONST_METHOD0(HasBlacklistedItems, bool());
   MOCK_METHOD1(AddBlacklistedURL, void(const GURL& url));
@@ -278,6 +278,9 @@ class MockCustomLinksManager : public CustomLinksManager {
                     const base::string16& new_title));
   MOCK_METHOD1(DeleteLink, bool(const GURL& url));
   MOCK_METHOD0(UndoAction, bool());
+  MOCK_METHOD1(RegisterCallbackForOnChanged,
+               std::unique_ptr<base::CallbackList<void()>::Subscription>(
+                   base::RepeatingClosure callback));
 };
 
 class PopularSitesFactoryForTest {
@@ -1086,6 +1089,7 @@ TEST_P(MostVisitedSitesTest, ShouldOnlyBuildCustomLinksWhenInitialized) {
 
   // Build tiles when custom links is not initialized. Tiles should be Top
   // Sites.
+  EXPECT_CALL(*mock_custom_links_, RegisterCallbackForOnChanged(_));
   EXPECT_CALL(*mock_top_sites_, GetMostVisitedURLs(_, false))
       .WillRepeatedly(InvokeCallbackArgument<0>(
           MostVisitedURLList{MakeMostVisitedURL(kTestTitle, kTestUrl)}));
@@ -1153,6 +1157,7 @@ TEST_P(MostVisitedSitesTest, ShouldFavorCustomLinksOverTopSites) {
 
   // Build tiles when custom links is not initialized. Tiles should be Top
   // Sites.
+  EXPECT_CALL(*mock_custom_links_, RegisterCallbackForOnChanged(_));
   EXPECT_CALL(*mock_top_sites_, GetMostVisitedURLs(_, false))
       .WillRepeatedly(InvokeCallbackArgument<0>(
           MostVisitedURLList{MakeMostVisitedURL(kTestTitle, kTestUrl)}));
@@ -1208,6 +1213,7 @@ TEST_P(MostVisitedSitesTest, ShouldFavorCustomLinksOverSuggestions) {
 
   // Build tiles when custom links is not initialized. Tiles should be Top
   // Sites.
+  EXPECT_CALL(*mock_custom_links_, RegisterCallbackForOnChanged(_));
   EXPECT_CALL(mock_suggestions_service_, AddCallback(_))
       .WillOnce(Invoke(&suggestions_service_callbacks_,
                        &SuggestionsService::ResponseCallbackList::Add));

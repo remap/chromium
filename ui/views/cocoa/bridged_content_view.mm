@@ -34,13 +34,9 @@
 #import "ui/views/cocoa/bridged_native_widget_host.h"
 #import "ui/views/cocoa/drag_drop_client_mac.h"
 #include "ui/views/controls/label.h"
-#include "ui/views/controls/menu/menu_config.h"
-#include "ui/views/controls/menu/menu_controller.h"
 #include "ui/views/view.h"
 #include "ui/views/widget/native_widget_mac.h"
 #include "ui/views/widget/widget.h"
-
-using views::MenuController;
 
 namespace {
 
@@ -64,14 +60,6 @@ gfx::Point MovePointToWindow(const NSPoint& point,
       [target_window contentRectForFrameRect:[target_window frame]];
   return gfx::Point(point_in_window.x,
                     NSHeight(content_rect) - point_in_window.y);
-}
-
-// Dispatch |event| to |menu_controller| and return true if |event| is
-// swallowed.
-bool DispatchEventToMenu(MenuController* menu_controller, ui::KeyEvent* event) {
-  return menu_controller &&
-         menu_controller->OnWillDispatchKeyEvent(event) ==
-             ui::POST_DISPATCH_NONE;
 }
 
 // Returns true if |client| has RTL text.
@@ -217,9 +205,16 @@ ui::TextEditCommand GetTextEditCommandForMenuAction(SEL action) {
 
 @interface BridgedContentView ()
 
-// Returns the active menu controller corresponding to |hostedView_|,
-// nil otherwise.
-- (MenuController*)activeMenuController;
+// Dispatch |event| to |bridge_|'s host.
+- (void)dispatchKeyEvent:(ui::KeyEvent*)event;
+
+// Returns true if active menu controller corresponds to this widget. Note that
+// this will synchronously call into the browser process.
+- (BOOL)hasActiveMenuController;
+
+// Dispatch |event| to |menu_controller| and return true if |event| is
+// swallowed.
+- (BOOL)dispatchKeyEventToMenuController:(ui::KeyEvent*)event;
 
 // Passes |event| to the InputMethod for dispatch.
 - (void)handleKeyEvent:(ui::KeyEvent*)event;
@@ -272,21 +267,18 @@ ui::TextEditCommand GetTextEditCommandForMenuAction(SEL action) {
 
 @implementation BridgedContentView
 
-@synthesize hostedView = hostedView_;
+@synthesize bridge = bridge_;
 @synthesize textInputClient = textInputClient_;
 @synthesize drawMenuBackgroundForBlur = drawMenuBackgroundForBlur_;
 
 - (id)initWithBridge:(views::BridgedNativeWidget*)bridge
-                view:(views::View*)viewToHost {
-  DCHECK(viewToHost);
-  gfx::Rect bounds = viewToHost->bounds();
+              bounds:(gfx::Rect)bounds {
   // To keep things simple, assume the origin is (0, 0) until there exists a use
   // case for something other than that.
   DCHECK(bounds.origin().IsOrigin());
   NSRect initialFrame = NSMakeRect(0, 0, bounds.width(), bounds.height());
   if ((self = [super initWithFrame:initialFrame])) {
     bridge_ = bridge;
-    hostedView_ = viewToHost;
 
     // Apple's documentation says that NSTrackingActiveAlways is incompatible
     // with NSTrackingCursorUpdate, so use NSTrackingActiveInActiveApp.
@@ -328,7 +320,6 @@ ui::TextEditCommand GetTextEditCommandForMenuAction(SEL action) {
 - (void)clearView {
   [self setTextInputClient:nullptr];
   bridge_ = nullptr;
-  hostedView_ = nullptr;
   [[NSDistributedNotificationCenter defaultCenter] removeObserver:self];
   [cursorTrackingArea_.get() clearOwner];
   [self removeTrackingArea:cursorTrackingArea_.get()];
@@ -461,23 +452,39 @@ ui::TextEditCommand GetTextEditCommandForMenuAction(SEL action) {
 
 // BridgedContentView private implementation.
 
-- (MenuController*)activeMenuController {
-  MenuController* menuController = MenuController::GetActiveInstance();
-  return menuController && menuController->owner() == hostedView_->GetWidget()
-             ? menuController
-             : nullptr;
+- (void)dispatchKeyEvent:(ui::KeyEvent*)event {
+  bool eventHandled = false;
+  if (bridge_)
+    bridge_->host()->DispatchKeyEvent(*event, &eventHandled);
+  if (eventHandled)
+    event->SetHandled();
+}
+
+- (BOOL)hasActiveMenuController {
+  bool hasMenuController = false;
+  if (bridge_)
+    bridge_->host()->GetHasMenuController(&hasMenuController);
+  return hasMenuController;
+}
+
+- (BOOL)dispatchKeyEventToMenuController:(ui::KeyEvent*)event {
+  bool eventSwallowed = false;
+  bool eventHandled = false;
+  if (bridge_) {
+    bridge_->host()->DispatchKeyEventToMenuController(*event, &eventSwallowed,
+                                                      &eventHandled);
+  }
+  if (eventHandled)
+    event->SetHandled();
+  return eventSwallowed;
 }
 
 - (void)handleKeyEvent:(ui::KeyEvent*)event {
-  if (!hostedView_)
-    return;
-
   DCHECK(event);
-  if (DispatchEventToMenu([self activeMenuController], event))
+  if ([self dispatchKeyEventToMenuController:event])
     return;
 
-  ignore_result(
-      hostedView_->GetWidget()->GetInputMethod()->DispatchKeyEvent(event));
+  [self dispatchKeyEvent:event];
 }
 
 - (BOOL)handleUnhandledKeyDownAsKeyEvent {
@@ -494,7 +501,7 @@ ui::TextEditCommand GetTextEditCommandForMenuAction(SEL action) {
              keyCode:(ui::KeyboardCode)keyCode
              domCode:(ui::DomCode)domCode
           eventFlags:(int)eventFlags {
-  if (!hostedView_)
+  if (!bridge_)
     return;
 
   // Always propagate the shift modifier if present. Shift doesn't always alter
@@ -506,7 +513,7 @@ ui::TextEditCommand GetTextEditCommandForMenuAction(SEL action) {
   // Generate a synthetic event with the keycode toolkit-views expects.
   ui::KeyEvent event(ui::ET_KEY_PRESSED, keyCode, domCode, eventFlags);
 
-  if (DispatchEventToMenu([self activeMenuController], &event))
+  if ([self dispatchKeyEventToMenuController:&event])
     return;
 
   // If there's an active TextInputClient, schedule the editing command to be
@@ -514,8 +521,7 @@ ui::TextEditCommand GetTextEditCommandForMenuAction(SEL action) {
   if (textInputClient_ && textInputClient_->IsTextEditCommandEnabled(command))
     textInputClient_->SetTextEditCommandForNextKeyEvent(command);
 
-  ignore_result(
-      hostedView_->GetWidget()->GetInputMethod()->DispatchKeyEvent(&event));
+  [self dispatchKeyEvent:&event];
 }
 
 - (void)adjustUiEventLocation:(ui::LocatedEvent*)event
@@ -533,7 +539,7 @@ ui::TextEditCommand GetTextEditCommandForMenuAction(SEL action) {
 }
 
 - (void)insertTextInternal:(id)text {
-  if (!hostedView_)
+  if (!bridge_)
     return;
 
   if ([text isKindOfClass:[NSAttributedString class]])
@@ -592,7 +598,7 @@ ui::TextEditCommand GetTextEditCommandForMenuAction(SEL action) {
   }
 
   // Forward the |text| to |textInputClient_| if no menu is active.
-  if (textInputClient_ && ![self activeMenuController]) {
+  if (textInputClient_ && ![self hasActiveMenuController]) {
     // If a single character is inserted by keyDown's call to
     // interpretKeyEvents: then use InsertChar() to allow editing events to be
     // merged. We use ui::VKEY_UNKNOWN as the key code since it's not feasible
@@ -756,12 +762,7 @@ ui::TextEditCommand GetTextEditCommandForMenuAction(SEL action) {
 }
 
 - (BOOL)isOpaque {
-  if (!hostedView_)
-    return NO;
-
-  // TODO(ccameron): Plumb this from BridgedNativeWidget to here.
-  ui::Layer* layer = hostedView_->GetWidget()->GetLayer();
-  return layer && layer->fills_bounds_opaquely();
+  return bridge_ ? !bridge_->is_translucent_window() : NO;
 }
 
 // To maximize consistency with the Cocoa browser (mac_views_browser=0), accept
@@ -802,7 +803,7 @@ ui::TextEditCommand GetTextEditCommandForMenuAction(SEL action) {
   // If a menu is active, and -[NSView interpretKeyEvents:] asks for the
   // input context, return nil. This ensures the action message is sent to
   // the view, rather than any NSTextInputClient a subview has installed.
-  if ([self activeMenuController])
+  if ([self hasActiveMenuController])
     return nil;
 
   // When not in an editable mode, or while entering passwords
@@ -1429,7 +1430,7 @@ ui::TextEditCommand GetTextEditCommandForMenuAction(SEL action) {
 }
 
 - (void)insertText:(id)text replacementRange:(NSRange)replacementRange {
-  if (!hostedView_ || !textInputClient_)
+  if (!bridge_ || !textInputClient_)
     return;
 
   textInputClient_->DeleteRange(gfx::Range(replacementRange));
@@ -1511,11 +1512,9 @@ ui::TextEditCommand GetTextEditCommandForMenuAction(SEL action) {
       command != ui::TextEditCommand::SELECT_ALL)
     return NO;
 
-  views::FocusManager* focus_manager =
-      hostedView_->GetWidget()->GetFocusManager();
-  return focus_manager && focus_manager->GetFocusedView() &&
-         focus_manager->GetFocusedView()->GetClassName() ==
-             views::Label::kViewClassName;
+  bool is_textual = false;
+  bridge_->host()->GetIsFocusedViewTextual(&is_textual);
+  return is_textual;
 }
 
 // NSDraggingSource protocol implementation.
@@ -1537,20 +1536,22 @@ ui::TextEditCommand GetTextEditCommandForMenuAction(SEL action) {
 
 - (id)accessibilityAttributeValue:(NSString*)attribute {
   if ([attribute isEqualToString:NSAccessibilityChildrenAttribute]) {
-    return @[ hostedView_->GetNativeViewAccessible() ];
+    return @[ bridge_->host()->GetNativeViewAccessible() ];
   }
 
   return [super accessibilityAttributeValue:attribute];
 }
 
 - (id)accessibilityHitTest:(NSPoint)point {
-  return [hostedView_->GetNativeViewAccessible() accessibilityHitTest:point];
+  return
+      [bridge_->host()->GetNativeViewAccessible() accessibilityHitTest:point];
 }
 
 - (id)accessibilityFocusedUIElement {
-  if (!hostedView_)
+  if (!bridge_)
     return nil;
-  return [hostedView_->GetNativeViewAccessible() accessibilityFocusedUIElement];
+  return [bridge_->host()->GetNativeViewAccessible()
+              accessibilityFocusedUIElement];
 }
 
 @end

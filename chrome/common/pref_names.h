@@ -266,7 +266,6 @@ extern const char kQuickUnlockTimeout[];
 extern const char kPinUnlockMinimumLength[];
 extern const char kPinUnlockMaximumLength[];
 extern const char kPinUnlockWeakPinsAllowed[];
-extern const char kEnableQuickUnlockFingerprint[];
 extern const char kInstantTetheringBleAdvertisingSupported[];
 extern const char kCastReceiverEnabled[];
 extern const char kMinimumAllowedChromeVersion[];
@@ -393,6 +392,13 @@ extern const char kRecommendedNativePrintersAccessMode[];
 extern const char kRecommendedNativePrintersBlacklist[];
 extern const char kRecommendedNativePrintersWhitelist[];
 extern const char kUserNativePrintersAllowed[];
+
+extern const char kPrintingAllowedColorModes[];
+extern const char kPrintingAllowedDuplexModes[];
+extern const char kPrintingAllowedPageSizes[];
+extern const char kPrintingColorDefault[];
+extern const char kPrintingDuplexDefault[];
+extern const char kPrintingSizeDefault[];
 #endif  // OS_CHROMEOS
 
 extern const char kDefaultSupervisedUserFilteringBehavior[];

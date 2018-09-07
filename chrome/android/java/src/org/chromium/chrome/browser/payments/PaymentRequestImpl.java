@@ -88,7 +88,7 @@ import javax.annotation.Nullable;
 
 /**
  * Android implementation of the PaymentRequest service defined in
- * components/payments/content/payment_request.mojom.
+ * third_party/blink/public/mojom/payments/payment_request.mojom.
  */
 public class PaymentRequestImpl
         implements PaymentRequest, PaymentRequestUI.Client, PaymentApp.InstrumentsCallback,
@@ -642,7 +642,8 @@ public class PaymentRequestImpl
             // one. Only the first one will be shown. This also prevents multiple tabs and windows
             // from showing PaymentRequest UI at the same time.
             mJourneyLogger.setNotShown(NotShownReason.CONCURRENT_REQUESTS);
-            disconnectFromClientWithDebugMessage("A PaymentRequest UI is already showing");
+            disconnectFromClientWithDebugMessage(
+                    "A PaymentRequest UI is already showing", PaymentErrorReason.ALREADY_SHOWING);
             if (sObserverForTest != null) sObserverForTest.onPaymentRequestServiceShowFailed();
             return;
         }

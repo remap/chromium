@@ -4,6 +4,8 @@
 
 package org.chromium.chrome.browser.media.router.caf;
 
+import static org.chromium.chrome.browser.media.router.caf.CastUtils.isSameOrigin;
+
 import android.support.annotation.Nullable;
 import android.support.v7.media.MediaRouter;
 
@@ -12,7 +14,6 @@ import com.google.android.gms.cast.framework.CastSession;
 import org.chromium.base.Log;
 import org.chromium.chrome.browser.media.router.ChromeMediaRouter;
 import org.chromium.chrome.browser.media.router.ClientRecord;
-import org.chromium.chrome.browser.media.router.FlingingController;
 import org.chromium.chrome.browser.media.router.MediaRoute;
 import org.chromium.chrome.browser.media.router.MediaRouteManager;
 import org.chromium.chrome.browser.media.router.MediaRouteProvider;
@@ -20,10 +21,8 @@ import org.chromium.chrome.browser.media.router.MediaSink;
 import org.chromium.chrome.browser.media.router.MediaSource;
 import org.chromium.chrome.browser.media.router.cast.CastMediaSource;
 
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
 
 /**
  * A {@link MediaRouteProvider} implementation for Cast devices and applications, using Cast v3 API.
@@ -37,19 +36,18 @@ public class CafMediaRouteProvider extends CafBaseMediaRouteProvider {
     private CreateRouteRequestInfo mPendingCreateRouteRequestInfo;
 
     private ClientRecord mLastRemovedRouteRecord;
-    private final Map<String, ClientRecord> mClientRecords = new HashMap<String, ClientRecord>();
+    // The records for clients, which must match mRoutes. This is used for the saving last record
+    // for autojoin.
+    private final Map<String, ClientRecord> mClientIdToRecords =
+            new HashMap<String, ClientRecord>();
     private CafMessageHandler mMessageHandler;
 
     public static CafMediaRouteProvider create(MediaRouteManager manager) {
         return new CafMediaRouteProvider(ChromeMediaRouter.getAndroidMediaRouter(), manager);
     }
 
-    public Map<String, ClientRecord> getClientRecords() {
-        return mClientRecords;
-    }
-
-    public Set<String> getClientIds() {
-        return mClientRecords.keySet();
+    public Map<String, ClientRecord> getClientIdToRecords() {
+        return mClientIdToRecords;
     }
 
     @Override
@@ -73,8 +71,7 @@ public class CafMediaRouteProvider extends CafBaseMediaRouteProvider {
 
         MediaRoute route =
                 new MediaRoute(sessionController().getSink().getId(), sourceId, presentationId);
-        addRoute(route, origin, tabId);
-        mManager.onRouteCreated(route.id, route.sinkId, nativeRequestId, this, false);
+        addRoute(route, origin, tabId, nativeRequestId, /* wasLaunched= */ false);
     }
 
     // TODO(zqzhang): the clientRecord/route management is not clean and the logic seems to be
@@ -99,21 +96,20 @@ public class CafMediaRouteProvider extends CafBaseMediaRouteProvider {
 
     @Override
     public void detachRoute(String routeId) {
-        mRoutes.remove(routeId);
-
-        removeClient(getClientRecordByRouteId(routeId));
+        removeRoute(routeId, /* error= */ null);
     }
 
     @Override
     public void sendStringMessage(String routeId, String message, int nativeCallbackId) {
-        // Not implemented.
-    }
+        Log.d(TAG, "Received message from client: %s", message);
 
-    @Override
-    @Nullable
-    public FlingingController getFlingingController(String routeId) {
-        // Not implemented.
-        return null;
+        if (!mRoutes.containsKey(routeId)) {
+            mManager.onMessageSentResult(false, nativeCallbackId);
+            return;
+        }
+
+        mManager.onMessageSentResult(
+                mMessageHandler.handleMessageFromClient(message), nativeCallbackId);
     }
 
     @Override
@@ -122,7 +118,7 @@ public class CafMediaRouteProvider extends CafBaseMediaRouteProvider {
     }
 
     public void sendMessageToClient(String clientId, String message) {
-        ClientRecord clientRecord = mClientRecords.get(clientId);
+        ClientRecord clientRecord = mClientIdToRecords.get(clientId);
         if (clientRecord == null) return;
 
         if (!clientRecord.isConnected) {
@@ -135,30 +131,30 @@ public class CafMediaRouteProvider extends CafBaseMediaRouteProvider {
         mManager.onMessage(clientRecord.routeId, message);
     }
 
+    /** Flushes all pending messages in record to a client. */
+    public void flushPendingMessagesToClient(ClientRecord clientRecord) {
+        for (String message : clientRecord.pendingMessages) {
+            Log.d(TAG, "Deqeueing message for client %s: %s", clientRecord.clientId, message);
+            mManager.onMessage(clientRecord.routeId, message);
+        }
+        clientRecord.pendingMessages.clear();
+    }
+
     @Override
     public CafMessageHandler getMessageHandler() {
         return mMessageHandler;
     }
 
     @Override
-    public void onSessionStarted(CreateRouteRequestInfo request) {
-        Log.d(TAG, "onSessionStarted");
+    public void onSessionStarted(CastSession session, String sessionId) {
+        super.onSessionStarted(session, sessionId);
 
-        MediaSink sink = request.sink;
-        MediaSource source = request.source;
-
-        MediaRoute route =
-                new MediaRoute(sink.getId(), source.getSourceId(), request.presentationId);
-        addRoute(route, request.origin, request.tabId);
-
-        String clientId = ((CastMediaSource) source).getClientId();
-
-        if (clientId != null) {
-            ClientRecord clientRecord = mClientRecords.get(clientId);
-            if (clientRecord != null) {
-                mMessageHandler.sendReceiverActionToClient(
-                        clientRecord.routeId, sink, clientId, "cast");
-            }
+        for (ClientRecord clientRecord : mClientIdToRecords.values()) {
+            // Should be exactly one instance of MediaRoute/ClientRecord at this moment.
+            MediaRoute route = mRoutes.get(clientRecord.routeId);
+            MediaSink sink = MediaSink.fromSinkId(route.sinkId, getAndroidMediaRouter());
+            mMessageHandler.sendReceiverActionToClient(
+                    clientRecord.routeId, sink, clientRecord.clientId, "cast");
         }
 
         mMessageHandler.onSessionStarted(sessionController());
@@ -166,50 +162,31 @@ public class CafMediaRouteProvider extends CafBaseMediaRouteProvider {
     }
 
     @Override
-    public void onSessionStartFailed(CastSession session, int error) {
-        super.onSessionStartFailed(session, error);
-        mClientRecords.clear();
-    }
-
-    @Override
-    public void onSessionEnding(CastSession session) {
-        super.onSessionEnding(session);
-        if (mClientRecords.isEmpty()) {
-            for (String routeId : mRoutes.keySet()) mManager.onRouteClosed(routeId);
-            mRoutes.clear();
-        } else {
-            mLastRemovedRouteRecord = mClientRecords.values().iterator().next();
-            for (ClientRecord client : mClientRecords.values()) {
-                mManager.onRouteClosed(client.routeId);
-
-                mRoutes.remove(client.routeId);
-            }
-            mClientRecords.clear();
-        }
-    }
-
-
-    private void addRoute(MediaRoute route, String origin, int tabId) {
+    protected void addRoute(
+            MediaRoute route, String origin, int tabId, int nativeRequestId, boolean wasLaunched) {
+        super.addRoute(route, origin, tabId, nativeRequestId, wasLaunched);
         CastMediaSource source = CastMediaSource.from(route.sourceId);
         final String clientId = source.getClientId();
 
-        if (clientId == null || mClientRecords.containsKey(clientId)) return;
+        if (clientId == null || mClientIdToRecords.containsKey(clientId)) return;
 
-        mClientRecords.put(clientId,
+        mClientIdToRecords.put(clientId,
                 new ClientRecord(route.id, clientId, source.getApplicationId(),
                         source.getAutoJoinPolicy(), origin, tabId));
     }
 
-    private void removeClient(@Nullable ClientRecord client) {
-        if (client == null) return;
-
-        mLastRemovedRouteRecord = client;
-        mClientRecords.remove(client.clientId);
+    @Override
+    protected void removeRoute(String routeId, @Nullable String error) {
+        ClientRecord record = getClientRecordByRouteId(routeId);
+        if (record != null) {
+            mLastRemovedRouteRecord = mClientIdToRecords.remove(record.clientId);
+        }
+        super.removeRoute(routeId, error);
     }
 
     @Nullable
     private ClientRecord getClientRecordByRouteId(String routeId) {
-        for (ClientRecord record : mClientRecords.values()) {
+        for (ClientRecord record : mClientIdToRecords.values()) {
             if (record.routeId.equals(routeId)) return record;
         }
         return null;
@@ -241,14 +218,14 @@ public class CafMediaRouteProvider extends CafBaseMediaRouteProvider {
         CastMediaSource currentSource = (CastMediaSource) sessionController().getSource();
         if (!currentSource.getApplicationId().equals(source.getApplicationId())) return false;
 
-        if (mClientRecords.isEmpty() && mLastRemovedRouteRecord != null) {
+        if (mClientIdToRecords.isEmpty() && mLastRemovedRouteRecord != null) {
             return isSameOrigin(origin, mLastRemovedRouteRecord.origin)
                     && tabId == mLastRemovedRouteRecord.tabId;
         }
 
-        if (mClientRecords.isEmpty()) return false;
+        if (mClientIdToRecords.isEmpty()) return false;
 
-        ClientRecord client = mClientRecords.values().iterator().next();
+        ClientRecord client = mClientIdToRecords.values().iterator().next();
 
         if (source.getAutoJoinPolicy().equals(CastMediaSource.AUTOJOIN_ORIGIN_SCOPED)) {
             return isSameOrigin(origin, client.origin);
@@ -258,27 +235,5 @@ public class CafMediaRouteProvider extends CafBaseMediaRouteProvider {
         }
 
         return false;
-    }
-
-    /**
-     * Compares two origins. Empty origin strings correspond to unique origins in
-     * url::Origin.
-     *
-     * @param originA A URL origin.
-     * @param originB A URL origin.
-     * @return True if originA and originB represent the same origin, false otherwise.
-     */
-    private static final boolean isSameOrigin(String originA, String originB) {
-        if (originA == null || originA.isEmpty() || originB == null || originB.isEmpty())
-            return false;
-        return originA.equals(originB);
-    }
-
-    Collection<String> getClients() {
-        return mClientRecords.keySet();
-    }
-
-    Map<String, ClientRecord> getClientRecordss() {
-        return mClientRecords;
     }
 }

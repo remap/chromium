@@ -28,6 +28,7 @@
 #include "content/public/renderer/worker_thread.h"
 #include "content/renderer/loader/child_url_loader_factory_bundle.h"
 #include "content/renderer/loader/request_extra_data.h"
+#include "content/renderer/loader/tracked_child_url_loader_factory_bundle.h"
 #include "content/renderer/loader/web_data_consumer_handle_impl.h"
 #include "content/renderer/loader/web_url_loader_impl.h"
 #include "content/renderer/loader/web_url_request_util.h"
@@ -66,7 +67,6 @@
 #include "third_party/blink/public/platform/interface_provider.h"
 #include "third_party/blink/public/platform/modules/background_fetch/background_fetch.mojom.h"
 #include "third_party/blink/public/platform/modules/background_fetch/web_background_fetch_registration.h"
-#include "third_party/blink/public/platform/modules/background_fetch/web_background_fetch_settled_fetch.h"
 #include "third_party/blink/public/platform/modules/notifications/web_notification_data.h"
 #include "third_party/blink/public/platform/modules/payments/web_payment_handler_response.h"
 #include "third_party/blink/public/platform/modules/payments/web_payment_request_event_data.h"
@@ -204,6 +204,30 @@ blink::WebBackgroundFetchRegistration ToWebBackgroundFetchRegistration(
       registration.failure_reason);
 }
 
+// This is complementary to ConvertWebKitPriorityToNetPriority, defined in
+// web_url_loader_impl.cc.
+WebURLRequest::Priority ConvertNetPriorityToWebKitPriority(
+    const net::RequestPriority priority) {
+  switch (priority) {
+    case net::HIGHEST:
+      return WebURLRequest::Priority::kVeryHigh;
+    case net::MEDIUM:
+      return WebURLRequest::Priority::kHigh;
+    case net::LOW:
+      return WebURLRequest::Priority::kMedium;
+    case net::LOWEST:
+      return WebURLRequest::Priority::kLow;
+    case net::IDLE:
+      return WebURLRequest::Priority::kVeryLow;
+    case net::THROTTLED:
+      NOTREACHED();
+      return WebURLRequest::Priority::kVeryLow;
+  }
+
+  NOTREACHED();
+  return WebURLRequest::Priority::kVeryLow;
+}
+
 // If |is_for_fetch_event| is true, some headers may be omitted according
 // to the embedder. It's always true now, but it might change with
 // more Onion Souping, and future callsites like Background Fetch probably don't
@@ -270,84 +294,11 @@ void ToWebServiceWorkerRequest(const network::ResourceRequest& request,
       ui::PAGE_TRANSITION_RELOAD));
   web_request->SetIntegrity(
       blink::WebString::FromUTF8(request.fetch_integrity));
+  web_request->SetPriority(
+      ConvertNetPriorityToWebKitPriority(request.priority));
   web_request->SetKeepalive(request.keepalive);
   web_request->SetIsHistoryNavigation(request.transition_type &
                                       ui::PAGE_TRANSITION_FORWARD_BACK);
-}
-
-// Converts the |request| to its equivalent type in the Blink API.
-// TODO(peter): Remove this when the Mojo FetchAPIRequest type exists.
-void ToWebServiceWorkerRequest(const ServiceWorkerFetchRequest& request,
-                               blink::WebServiceWorkerRequest* web_request) {
-  DCHECK(web_request);
-
-  web_request->SetURL(blink::WebURL(request.url));
-  web_request->SetMethod(blink::WebString::FromUTF8(request.method));
-  for (const auto& pair : request.headers) {
-    web_request->SetHeader(blink::WebString::FromUTF8(pair.first),
-                           blink::WebString::FromUTF8(pair.second));
-  }
-  web_request->SetReferrer(
-      blink::WebString::FromUTF8(request.referrer.url.spec()),
-      request.referrer.policy);
-  web_request->SetMode(request.mode);
-  web_request->SetIsMainResourceLoad(request.is_main_resource_load);
-  web_request->SetCredentialsMode(request.credentials_mode);
-  web_request->SetCacheMode(request.cache_mode);
-  web_request->SetRedirectMode(request.redirect_mode);
-  web_request->SetRequestContext(
-      GetBlinkRequestContext(request.request_context_type));
-  web_request->SetFrameType(request.frame_type);
-  web_request->SetClientId(blink::WebString::FromUTF8(request.client_id));
-  web_request->SetIsReload(request.is_reload);
-  web_request->SetIntegrity(blink::WebString::FromUTF8(request.integrity));
-  web_request->SetKeepalive(request.keepalive);
-  web_request->SetIsHistoryNavigation(request.is_history_navigation);
-}
-
-// Converts |response| to its equivalent type in the Blink API. This conversion
-// is destructive.
-// TODO(leonhsl): Remove this when we propagate
-// blink::mojom::FetchAPIResponsePtr into Blink instead of
-// WebServiceWorkerResponse.
-void ToWebServiceWorkerResponse(blink::mojom::FetchAPIResponse* response,
-                                blink::WebServiceWorkerResponse* web_response) {
-  DCHECK(web_response);
-
-  std::vector<blink::WebURL> url_list;
-  for (const GURL& url : response->url_list)
-    url_list.push_back(blink::WebURL(url));
-
-  web_response->SetURLList(blink::WebVector<blink::WebURL>(url_list));
-  web_response->SetStatus(static_cast<unsigned short>(response->status_code));
-  web_response->SetStatusText(
-      blink::WebString::FromUTF8(response->status_text));
-  web_response->SetResponseType(response->response_type);
-  for (const auto& pair : response->headers) {
-    web_response->SetHeader(blink::WebString::FromUTF8(pair.first),
-                            blink::WebString::FromUTF8(pair.second));
-  }
-  if (response->blob) {
-    DCHECK(!response->blob->uuid.empty());
-    DCHECK(response->blob->blob.is_valid());
-    web_response->SetBlob(blink::WebString::FromASCII(response->blob->uuid),
-                          response->blob->size,
-                          response->blob->blob.PassHandle());
-  }
-  web_response->SetError(response->error);
-  web_response->SetResponseTime(response->response_time);
-  if (response->is_in_cache_storage) {
-    web_response->SetCacheStorageCacheName(blink::WebString::FromUTF8(
-        response->cache_storage_cache_name ? *response->cache_storage_cache_name
-                                           : ""));
-  }
-
-  std::vector<blink::WebString> cors_exposed_header_names;
-  for (const auto& name : response->cors_exposed_header_names)
-    cors_exposed_header_names.push_back(blink::WebString::FromUTF8(name));
-
-  web_response->SetCorsExposedHeaderNames(
-      blink::WebVector<blink::WebString>(cors_exposed_header_names));
 }
 
 // Finds an event callback keyed by |event_id| from |map|, and runs the callback
@@ -738,6 +689,7 @@ ServiceWorkerContextClient::ServiceWorkerContextClient(
     std::unique_ptr<EmbeddedWorkerInstanceClientImpl> embedded_worker_client,
     mojom::EmbeddedWorkerStartTimingPtr start_timing,
     mojom::RendererPreferenceWatcherRequest preference_watcher_request,
+    std::unique_ptr<URLLoaderFactoryBundleInfo> subresource_loaders,
     scoped_refptr<base::SingleThreadTaskRunner> main_thread_task_runner)
     : embedded_worker_id_(embedded_worker_id),
       service_worker_version_id_(service_worker_version_id),
@@ -755,6 +707,14 @@ ServiceWorkerContextClient::ServiceWorkerContextClient(
   instance_host_ =
       mojom::ThreadSafeEmbeddedWorkerInstanceHostAssociatedPtr::Create(
           std::move(instance_host), main_thread_task_runner_);
+
+  if (subresource_loaders) {
+    loader_factories_ = base::MakeRefCounted<HostChildURLLoaderFactoryBundle>(
+        main_thread_task_runner_);
+    loader_factories_->Update(std::make_unique<ChildURLLoaderFactoryBundleInfo>(
+                                  std::move(subresource_loaders)),
+                              base::nullopt /* subresource_overrides */);
+  }
 
   // Create a content::ServiceWorkerNetworkProvider for this data source so
   // we can observe its requests.
@@ -1402,10 +1362,14 @@ ServiceWorkerContextClient::CreateServiceWorkerFetchContext(
   DCHECK(main_thread_task_runner_->RunsTasksInCurrentSequence());
   DCHECK(preference_watcher_request_.is_pending());
 
-  scoped_refptr<ChildURLLoaderFactoryBundle> url_loader_factory_bundle =
-      RenderThreadImpl::current()
-          ->blink_platform_impl()
-          ->CreateDefaultURLLoaderFactoryBundle();
+  scoped_refptr<ChildURLLoaderFactoryBundle> url_loader_factory_bundle;
+  if (loader_factories_) {
+    url_loader_factory_bundle = loader_factories_;
+  } else {
+    url_loader_factory_bundle = RenderThreadImpl::current()
+                                    ->blink_platform_impl()
+                                    ->CreateDefaultURLLoaderFactoryBundle();
+  }
   DCHECK(url_loader_factory_bundle);
 
   std::unique_ptr<network::SharedURLLoaderFactoryInfo>
@@ -1645,7 +1609,6 @@ void ServiceWorkerContextClient::DispatchBackgroundFetchClickEvent(
 
 void ServiceWorkerContextClient::DispatchBackgroundFetchFailEvent(
     const BackgroundFetchRegistration& registration,
-    const std::vector<BackgroundFetchSettledFetch>& fetches,
     DispatchBackgroundFetchFailEventCallback callback) {
   int request_id = context_->timeout_timer->StartEvent(
       CreateAbortCallback(&context_->background_fetch_fail_event_callbacks));
@@ -1658,21 +1621,12 @@ void ServiceWorkerContextClient::DispatchBackgroundFetchFailEvent(
                           TRACE_ID_LOCAL(request_id)),
       TRACE_EVENT_FLAG_FLOW_OUT);
 
-  blink::WebVector<blink::WebBackgroundFetchSettledFetch> web_fetches(
-      fetches.size());
-  for (size_t i = 0; i < fetches.size(); ++i) {
-    ToWebServiceWorkerRequest(fetches[i].request, &web_fetches[i].request);
-    ToWebServiceWorkerResponse(fetches[i].response.get(),
-                               &web_fetches[i].response);
-  }
-
   proxy_->DispatchBackgroundFetchFailEvent(
-      request_id, ToWebBackgroundFetchRegistration(registration), web_fetches);
+      request_id, ToWebBackgroundFetchRegistration(registration));
 }
 
 void ServiceWorkerContextClient::DispatchBackgroundFetchSuccessEvent(
     const BackgroundFetchRegistration& registration,
-    const std::vector<BackgroundFetchSettledFetch>& fetches,
     DispatchBackgroundFetchSuccessEventCallback callback) {
   int request_id = context_->timeout_timer->StartEvent(
       CreateAbortCallback(&context_->background_fetched_event_callbacks));
@@ -1685,16 +1639,8 @@ void ServiceWorkerContextClient::DispatchBackgroundFetchSuccessEvent(
                           TRACE_ID_LOCAL(request_id)),
       TRACE_EVENT_FLAG_FLOW_OUT);
 
-  blink::WebVector<blink::WebBackgroundFetchSettledFetch> web_fetches(
-      fetches.size());
-  for (size_t i = 0; i < fetches.size(); ++i) {
-    ToWebServiceWorkerRequest(fetches[i].request, &web_fetches[i].request);
-    ToWebServiceWorkerResponse(fetches[i].response.get(),
-                               &web_fetches[i].response);
-  }
-
   proxy_->DispatchBackgroundFetchSuccessEvent(
-      request_id, ToWebBackgroundFetchRegistration(registration), web_fetches);
+      request_id, ToWebBackgroundFetchRegistration(registration));
 }
 
 void ServiceWorkerContextClient::InitializeGlobalScope(

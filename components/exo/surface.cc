@@ -177,12 +177,6 @@ class CustomWindowTargeter : public aura::WindowTargeter {
     return surface->HitTest(local_point);
   }
 
-  std::unique_ptr<HitTestRects> GetExtraHitTestShapeRects(
-      aura::Window* window) const override {
-    Surface* surface = Surface::AsSurface(window);
-    return surface ? surface->GetHitTestShapeRects() : nullptr;
-  }
-
  private:
   DISALLOW_COPY_AND_ASSIGN(CustomWindowTargeter);
 };
@@ -199,7 +193,7 @@ Surface::Surface()
   window_->SetName("ExoSurface");
   window_->SetProperty(kSurfaceKey, this);
   window_->Init(ui::LAYER_NOT_DRAWN);
-  window_->SetEventTargeter(base::WrapUnique(new CustomWindowTargeter));
+  window_->SetEventTargeter(std::make_unique<CustomWindowTargeter>());
   window_->set_owned_by_parent(false);
   WMHelper::GetInstance()->SetDragDropDelegate(window_.get());
 }
@@ -662,17 +656,6 @@ bool Surface::HitTest(const gfx::Point& point) const {
 
 void Surface::GetHitTestMask(gfx::Path* mask) const {
   hit_test_region_.GetBoundaryPath(mask);
-}
-
-std::unique_ptr<aura::WindowTargeter::HitTestRects>
-Surface::GetHitTestShapeRects() const {
-  if (hit_test_region_.IsEmpty())
-    return nullptr;
-
-  auto rects = std::make_unique<aura::WindowTargeter::HitTestRects>();
-  for (gfx::Rect rect : hit_test_region_)
-    rects->push_back(rect);
-  return rects;
 }
 
 void Surface::SetSurfaceDelegate(SurfaceDelegate* delegate) {

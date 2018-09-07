@@ -199,7 +199,6 @@ class CONTENT_EXPORT RenderWidgetHostImpl
   RenderWidgetHostViewBase* GetView() const override;
   bool IsLoading() const override;
   bool IsCurrentlyUnresponsive() const override;
-  void SetIgnoreInputEvents(bool ignore_input_events) override;
   bool SynchronizeVisualProperties() override;
   void AddKeyPressEventCallback(const KeyPressEventCallback& callback) override;
   void RemoveKeyPressEventCallback(
@@ -480,12 +479,8 @@ class CONTENT_EXPORT RenderWidgetHostImpl
   // Cancels an ongoing composition.
   void ImeCancelComposition();
 
-  bool ignore_input_events() const {
-    return ignore_input_events_;
-  }
-
-  // Whether forwarded WebInputEvents should be dropped.
-  bool ShouldDropInputEvents() const;
+  // Whether forwarded WebInputEvents are being ignored.
+  bool IsIgnoringInputEvents() const;
 
   bool has_touch_handler() const { return has_touch_handler_; }
 
@@ -711,7 +706,7 @@ class CONTENT_EXPORT RenderWidgetHostImpl
   // Returns the keyboard layout mapping.
   base::flat_map<std::string, std::string> GetKeyboardLayoutMap();
 
-  void DidStopFlinging() override;
+  void DidStopFlinging();
 
   void GetContentRenderingTimeoutFrom(RenderWidgetHostImpl* other);
 
@@ -1016,9 +1011,6 @@ class CONTENT_EXPORT RenderWidgetHostImpl
   // Used for UMA histogram logging to measure the time for a repaint view
   // operation to finish.
   base::TimeTicks repaint_start_time_;
-
-  // Set to true if we shouldn't send input events from the render widget.
-  bool ignore_input_events_;
 
   // Set when we update the text direction of the selected input element.
   bool text_direction_updated_;

@@ -59,6 +59,9 @@ message ChromeUserPopulation {
   }
   optional ProfileManagementStatus profile_management_status = 5
       [default = UNKNOWN];
+
+  // Indicates if user opted in advanced protection program (a.k.a Titanium).
+  optional bool is_under_advanced_protection = 6;
 }
 
 message ClientPhishingRequest {
@@ -556,6 +559,9 @@ message ClientDownloadRequest {
     optional int64 length = 4;
     optional SignatureInfo signature = 5;
     optional ImageHeaders image_headers = 6;
+
+    // Indicates if the given file is password protected.
+    optional bool is_encrypted = 7;
   }
 
   repeated ArchivedBinary archived_binary = 22;

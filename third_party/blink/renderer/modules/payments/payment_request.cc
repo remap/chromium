@@ -740,7 +740,8 @@ bool AllowedToUsePaymentRequest(const Frame* frame) {
     return false;
 
   // 2. If Feature Policy is enabled, return the policy for "payment" feature.
-  return frame->IsFeatureEnabled(mojom::FeaturePolicyFeature::kPayment);
+  return frame->IsFeatureEnabled(mojom::FeaturePolicyFeature::kPayment,
+                                 ReportOptions::kReportOnFailure);
 }
 
 void WarnIgnoringQueryQuotaForCanMakePayment(
@@ -1247,6 +1248,14 @@ void PaymentRequest::OnError(PaymentErrorReason error) {
         sb.Append(" are not supported");
         message = sb.ToString();
       }
+      break;
+    }
+
+    case PaymentErrorReason::ALREADY_SHOWING: {
+      exception_code = DOMExceptionCode::kAbortError;
+      message =
+          "Another PaymentRequest UI is already showing in a different tab or "
+          "window";
       break;
     }
 

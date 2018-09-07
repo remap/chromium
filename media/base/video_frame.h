@@ -132,7 +132,7 @@ class MEDIA_EXPORT VideoFrame : public base::RefCountedThreadSafe<VideoFrame> {
   // frame are allocated but not initialized. The caller should specify the
   // physical buffer size in |layout| parameter.
   static scoped_refptr<VideoFrame> CreateFrameWithLayout(
-      VideoFrameLayout layout,
+      const VideoFrameLayout& layout,
       const gfx::Rect& visible_rect,
       const gfx::Size& natural_size,
       base::TimeDelta timestamp,
@@ -417,14 +417,15 @@ class MEDIA_EXPORT VideoFrame : public base::RefCountedThreadSafe<VideoFrame> {
   size_t shared_memory_offset() const;
 
 #if defined(OS_LINUX)
-  // Return a vector containing the backing DmaBufs for this frame. The number
+  // Returns a vector containing the backing DmaBufs for this frame. The number
   // of returned DmaBufs will be equal or less than the number of planes of
   // the frame. If there are less, this means that the last FD contains the
   // remaining planes.
   // Note that the returned FDs are still owned by the VideoFrame. This means
   // that the caller shall not close them, or use them after the VideoFrame is
-  // destroyed.
-  std::vector<int> DmabufFds() const;
+  // destroyed. For such use cases, use media::DuplicateFDs() to obtain your
+  // own copy of the FDs.
+  const std::vector<base::ScopedFD>& DmabufFds() const;
 
   // Returns true if |frame| has DmaBufs.
   bool HasDmaBufs() const;
@@ -508,7 +509,7 @@ class MEDIA_EXPORT VideoFrame : public base::RefCountedThreadSafe<VideoFrame> {
              base::TimeDelta timestamp);
 
   // VideoFrameLayout is initialized at caller side.
-  VideoFrame(VideoFrameLayout layout,
+  VideoFrame(const VideoFrameLayout& layout,
              StorageType storage_type,
              const gfx::Rect& visible_rect,
              const gfx::Size& natural_size,

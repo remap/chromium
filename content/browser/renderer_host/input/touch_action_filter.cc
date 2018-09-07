@@ -55,7 +55,11 @@ FilterGestureEventResult TouchActionFilter::FilterGestureEvent(
   switch (gesture_event->GetType()) {
     case WebInputEvent::kGestureScrollBegin: {
       DCHECK(!suppress_manipulation_events_);
-      gesture_sequence_in_progress_ = true;
+      // In VR, GestureScrollBegin could come without GestureTapDown.
+      if (!gesture_sequence_in_progress_) {
+        gesture_sequence_in_progress_ = true;
+        SetTouchAction(cc::kTouchActionAuto);
+      }
       gesture_sequence_.append("B");
       if (!scrolling_touch_action_.has_value()) {
         static auto* crash_key = base::debug::AllocateCrashKeyString(
@@ -170,13 +174,16 @@ FilterGestureEventResult TouchActionFilter::FilterGestureEvent(
       break;
 
     case WebInputEvent::kGestureTapDown:
-      gesture_sequence_.append("O");
       gesture_sequence_in_progress_ = true;
       // If the gesture is hitting a region that has a non-blocking (such as a
       // passive) event listener.
       if (gesture_event->is_source_touch_event_set_non_blocking)
         SetTouchAction(cc::kTouchActionAuto);
       scrolling_touch_action_ = allowed_touch_action_;
+      if (scrolling_touch_action_.has_value())
+        gesture_sequence_.append("O1");
+      else
+        gesture_sequence_.append("O2");
       DCHECK(!drop_current_tap_ending_event_);
       break;
 
@@ -233,6 +240,11 @@ void TouchActionFilter::OnSetTouchAction(cc::TouchAction touch_action) {
   scrolling_touch_action_ = allowed_touch_action_;
 }
 
+void TouchActionFilter::SetActiveTouchInProgress(
+    bool active_touch_in_progress) {
+  active_touch_in_progress_ = active_touch_in_progress;
+}
+
 void TouchActionFilter::ReportAndResetTouchAction() {
   if (has_touch_event_handler_)
     gesture_sequence_.append("R1");
@@ -243,9 +255,6 @@ void TouchActionFilter::ReportAndResetTouchAction() {
 }
 
 void TouchActionFilter::ReportTouchAction() {
-  // TODO(https://crbug.com/851644): make sure the value is properly set.
-  if (!scrolling_touch_action_.has_value())
-    SetTouchAction(cc::kTouchActionAuto);
   // Report the effective touch action computed by blink such as
   // kTouchActionNone, kTouchActionPanX, etc.
   // Since |cc::kTouchActionAuto| is equivalent to |cc::kTouchActionMax|, we
@@ -348,14 +357,14 @@ void TouchActionFilter::OnHasTouchEventHandlers(bool has_handlers) {
     gesture_sequence_.append("L1");
   else
     gesture_sequence_.append("L0");
-  ResetTouchAction();
-  // If a page has a touch event handler, this function can be called twice with
-  // has_handlers = false first and then true later. When it is true, we need to
-  // reset the |scrolling_touch_action_|. However, we do not want to reset it if
-  // there is an active gesture sequence in progress. For example, the
-  // OnHasTouchEventHandlers(true) can be received after a GestureTapDown.
-  if (has_touch_event_handler_ && !gesture_sequence_in_progress_)
-    scrolling_touch_action_.reset();
+  // We have set the associated touch action if the touch start already happened
+  // or there is a gesture in progress. In these cases, we should not reset the
+  // associated touch action.
+  if (!gesture_sequence_in_progress_ && !active_touch_in_progress_) {
+    ResetTouchAction();
+    if (has_touch_event_handler_)
+      scrolling_touch_action_.reset();
+  }
 }
 
 }  // namespace content

@@ -27,6 +27,7 @@
 #include "components/password_manager/core/common/password_manager_pref_names.h"
 #include "components/prefs/pref_service.h"
 #include "components/sync/driver/sync_service.h"
+#include "url/gurl.h"
 using autofill::PasswordForm;
 
 namespace password_manager_util {
@@ -93,15 +94,18 @@ class HttpMetricsMigrationReporter
  public:
   HttpMetricsMigrationReporter(
       password_manager::PasswordStore* store,
-      scoped_refptr<net::URLRequestContextGetter> request_context)
-      : request_context_(std::move(request_context)) {
+      base::RepeatingCallback<network::mojom::NetworkContext*()>
+          network_context_getter)
+      : network_context_getter_(network_context_getter) {
     store->GetAutofillableLogins(this);
   }
 
  private:
-  // This type define a subset of PasswordForm where first argument is the host
-  // and the second argument is the username of the form.
-  typedef std::pair<std::string, base::string16> FormKey;
+  // This type define a subset of PasswordForm where first argument is the
+  // signon-realm excluding the protocol, the second argument is
+  // PasswordForm::scheme (i.e. HTML, BASIC, etc.) and the third argument is the
+  // username of the form.
+  using FormKey = std::tuple<std::string, PasswordForm::Scheme, base::string16>;
 
   // This overrides the PasswordStoreConsumer method.
   void OnGetPasswordStoreResults(
@@ -109,12 +113,14 @@ class HttpMetricsMigrationReporter
 
   void OnHSTSQueryResult(FormKey key,
                          base::string16 password_value,
-                         bool is_hsts);
+                         password_manager::HSTSResult is_hsts);
 
   void ReportMetrics();
 
+  base::RepeatingCallback<network::mojom::NetworkContext*()>
+      network_context_getter_;
+
   std::map<FormKey, base::flat_set<base::string16>> https_credentials_map_;
-  const scoped_refptr<net::URLRequestContextGetter> request_context_;
   size_t processed_results_ = 0;
 
   // The next three counters are in pairs where [0] component means that HSTS is
@@ -141,15 +147,24 @@ class HttpMetricsMigrationReporter
 
 void HttpMetricsMigrationReporter::OnGetPasswordStoreResults(
     std::vector<std::unique_ptr<autofill::PasswordForm>> results) {
+  // Non HTTP or HTTPS credentials are ignored.
+  base::EraseIf(results, [](const std::unique_ptr<PasswordForm>& form) {
+    return !form->origin.SchemeIsHTTPOrHTTPS();
+  });
+
   for (auto& form : results) {
-    FormKey form_key({form->origin.host(), form->username_value});
+    // The next signon-realm has the protocol excluded. For example if original
+    // signon_realm is "https://google.com/". After excluding protocol it
+    // becomes "google.com/".
+    FormKey form_key({GURL(form->signon_realm).GetContent(), form->scheme,
+                      form->username_value});
     if (form->origin.SchemeIs(url::kHttpScheme)) {
-      password_manager::PostHSTSQueryForHostAndRequestContext(
-          form->origin, request_context_,
+      password_manager::PostHSTSQueryForHostAndNetworkContext(
+          form->origin, network_context_getter_.Run(),
           base::Bind(&HttpMetricsMigrationReporter::OnHSTSQueryResult,
                      base::Unretained(this), form_key, form->password_value));
       ++total_http_credentials_;
-    } else if (form->origin.SchemeIs(url::kHttpsScheme)) {
+    } else {  // Https
       https_credentials_map_[form_key].insert(form->password_value);
     }
   }
@@ -160,10 +175,16 @@ void HttpMetricsMigrationReporter::OnGetPasswordStoreResults(
 void HttpMetricsMigrationReporter::OnHSTSQueryResult(
     FormKey key,
     base::string16 password_value,
-    bool is_hsts) {
+    password_manager::HSTSResult hsts_result) {
   ++processed_results_;
   base::ScopedClosureRunner report(base::BindOnce(
       &HttpMetricsMigrationReporter::ReportMetrics, base::Unretained(this)));
+
+  if (hsts_result == password_manager::HSTSResult::kError)
+    return;
+
+  bool is_hsts = (hsts_result == password_manager::HSTSResult::kYes);
+
   auto user_it = https_credentials_map_.find(key);
   if (user_it == https_credentials_map_.end()) {
     // Credentials are not migrated yet.
@@ -211,9 +232,10 @@ void HttpMetricsMigrationReporter::ReportMetrics() {
 #if !defined(OS_IOS)
 void ReportHttpMigrationMetrics(
     scoped_refptr<password_manager::PasswordStore> store,
-    scoped_refptr<net::URLRequestContextGetter> request_context) {
+    base::RepeatingCallback<network::mojom::NetworkContext*()>
+        network_context_getter) {
   // The object will delete itself once the metrics are recorded.
-  new HttpMetricsMigrationReporter(store.get(), std::move(request_context));
+  new HttpMetricsMigrationReporter(store.get(), network_context_getter);
 }
 #endif  // !defined(OS_IOS)
 

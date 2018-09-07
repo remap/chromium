@@ -78,7 +78,6 @@ class CONTENT_EXPORT DelegatedFrameHost
   void OnCompositingStarted(ui::Compositor* compositor,
                             base::TimeTicks start_time) override;
   void OnCompositingEnded(ui::Compositor* compositor) override;
-  void OnCompositingLockStateChanged(ui::Compositor* compositor) override;
   void OnCompositingChildResizing(ui::Compositor* compositor) override;
   void OnCompositingShuttingDown(ui::Compositor* compositor) override;
 
@@ -124,8 +123,8 @@ class CONTENT_EXPORT DelegatedFrameHost
                     const gfx::Size& dip_size,
                     cc::DeadlinePolicy deadline_policy);
   bool HasSavedFrame() const;
-  void SetCompositor(ui::Compositor* compositor);
-  void ResetCompositor();
+  void AttachToCompositor(ui::Compositor* compositor);
+  void DetachFromCompositor();
   // Note: |src_subrect| is specified in DIP dimensions while |output_size|
   // expects pixels. If |src_subrect| is empty, the entire surface area is
   // copied.

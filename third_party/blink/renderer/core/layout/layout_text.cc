@@ -143,14 +143,14 @@ LayoutText::LayoutText(Node* node, scoped_refptr<StringImpl> str)
     GetFrameView()->IncrementVisuallyNonEmptyCharacterCount(text_.length());
 }
 
-#if DCHECK_IS_ON()
 LayoutText::~LayoutText() {
+#if DCHECK_IS_ON()
   if (IsInLayoutNGInlineFormattingContext())
     DCHECK(!first_paint_fragment_);
   else
     text_boxes_.AssertIsEmpty();
-}
 #endif
+}
 
 LayoutText* LayoutText::CreateEmptyAnonymous(
     Document& doc,
@@ -246,14 +246,20 @@ void LayoutText::RemoveTextBox(InlineTextBox* box) {
 
 void LayoutText::DeleteTextBoxes() {
   if (IsInLayoutNGInlineFormattingContext())
-    first_paint_fragment_ = nullptr;
+    SetFirstInlineFragment(nullptr);
   else
     MutableTextBoxes().DeleteLineBoxes();
 }
 
-void LayoutText::SetFirstInlineFragment(NGPaintFragment* fragment) {
+void LayoutText::SetFirstInlineFragment(NGPaintFragment* first_fragment) {
   CHECK(IsInLayoutNGInlineFormattingContext());
-  first_paint_fragment_ = fragment;
+  // TODO(layout-dev): Because We should call |WillDestroy()| once for
+  // associated fragments, when you reuse fragments, you should construct
+  // NGAbstractInlineTextBox for them.
+  for (NGPaintFragment* fragment : NGPaintFragment::InlineFragmentsFor(this))
+    NGAbstractInlineTextBox::WillDestroy(fragment);
+  NGPaintFragment::ResetInlineFragmentsFor(this);
+  first_paint_fragment_ = first_fragment;
 }
 
 void LayoutText::InLayoutNGInlineFormattingContextWillChange(bool new_value) {
@@ -2045,29 +2051,10 @@ LayoutRect LayoutText::LocalSelectionRect() const {
     return rect;
   }
 
-  // Now calculate startPos and endPos for painting selection.
-  // We include a selection while endPos > 0
-  unsigned start_pos, end_pos;
-  if (GetSelectionState() == SelectionState::kInside) {
-    // We are fully selected.
-    start_pos = 0;
-    end_pos = TextLength();
-  } else {
-    if (GetSelectionState() == SelectionState::kStart) {
-      // TODO(yoichio): value_or is used to prevent use uininitialized value
-      // on release. It should be value() after LayoutSelection brushup.
-      start_pos = frame_selection.LayoutSelectionStart().value_or(0);
-      end_pos = TextLength();
-    } else if (GetSelectionState() == SelectionState::kEnd) {
-      start_pos = 0;
-      end_pos = frame_selection.LayoutSelectionEnd().value_or(0);
-    } else {
-      DCHECK(GetSelectionState() == SelectionState::kStartAndEnd);
-      start_pos = frame_selection.LayoutSelectionStart().value_or(0);
-      end_pos = frame_selection.LayoutSelectionEnd().value_or(0);
-    }
-  }
-
+  const LayoutTextSelectionStatus& selection_status =
+      frame_selection.ComputeLayoutSelectionStatus(*this);
+  const unsigned start_pos = selection_status.start;
+  const unsigned end_pos = selection_status.end;
   DCHECK_LE(start_pos, end_pos);
   LayoutRect rect;
   for (InlineTextBox* box : TextBoxes()) {

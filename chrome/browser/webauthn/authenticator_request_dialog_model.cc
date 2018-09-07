@@ -15,31 +15,55 @@ namespace {
 // Attempts to auto-select the most likely transport that will be used to
 // service this request, or returns base::nullopt if unsure.
 base::Optional<device::FidoTransportProtocol> SelectMostLikelyTransport(
-    device::FidoRequestHandlerBase::TransportAvailabilityInfo
+    const device::FidoRequestHandlerBase::TransportAvailabilityInfo&
         transport_availability,
     base::Optional<device::FidoTransportProtocol> last_used_transport) {
-  // If the KeyChain contains one of the |allowedCredentials|, then we are
-  // certain we can service the request using Touch ID, as long as allowed by
-  // the RP, so go for the certain choice here.
-  if (transport_availability.has_recognized_mac_touch_id_credential &&
-      base::ContainsKey(transport_availability.available_transports,
+  base::flat_set<AuthenticatorTransport> candidate_transports(
+      transport_availability.available_transports);
+
+  // As an exception, we can tell in advance if using Touch Id will succeed. If
+  // yes, always auto-select that transport over all other considerations for
+  // GetAssertion operations; and de-select it if it will not work.
+  if (transport_availability.request_type ==
+          device::FidoRequestHandlerBase::RequestType::kGetAssertion &&
+      base::ContainsKey(candidate_transports,
                         device::FidoTransportProtocol::kInternal)) {
-    return device::FidoTransportProtocol::kInternal;
+    // For GetAssertion requests, auto advance to Touch ID if the keychain
+    // contains one of the allowedCredentials.
+    if (transport_availability.has_recognized_mac_touch_id_credential)
+      return device::FidoTransportProtocol::kInternal;
+
+    // Otherwise make sure we never return Touch ID (unless there is no other
+    // option, in which case we auto advance to a special error screen).
+    candidate_transports.erase(device::FidoTransportProtocol::kInternal);
+    if (candidate_transports.empty())
+      return device::FidoTransportProtocol::kInternal;
   }
 
-  // For GetAssertion call, if the |last_used_transport| is available, use that.
+  // If caBLE is listed as one of the allowed transports, it indicates that the
+  // RP has bothered to supply the |cable_extension|. Respect that and always
+  // select caBLE in that case for GetAssertion operations.
+  if (transport_availability.request_type ==
+          device::FidoRequestHandlerBase::RequestType::kGetAssertion &&
+      base::ContainsKey(
+          candidate_transports,
+          AuthenticatorTransport::kCloudAssistedBluetoothLowEnergy)) {
+    return AuthenticatorTransport::kCloudAssistedBluetoothLowEnergy;
+  }
+
+  // Otherwise, for GetAssertion calls, if the |last_used_transport| is
+  // available, use that.
   if (transport_availability.request_type ==
           device::FidoRequestHandlerBase::RequestType::kGetAssertion &&
       last_used_transport &&
-      base::ContainsKey(transport_availability.available_transports,
-                        *last_used_transport)) {
+      base::ContainsKey(candidate_transports, *last_used_transport)) {
     return *last_used_transport;
   }
 
-  // If there is only one transport available we can use, select that, instead
-  // of showing a transport selection screen with only a single transport.
-  if (transport_availability.available_transports.size() == 1) {
-    return *transport_availability.available_transports.begin();
+  // Finally, if there is only one transport available we can use, select that,
+  // instead of showing a transport selection screen with only a single item.
+  if (candidate_transports.size() == 1) {
+    return *candidate_transports.begin();
   }
 
   return base::nullopt;
@@ -86,11 +110,7 @@ void AuthenticatorRequestDialogModel::StartFlow(
     transport_list_model_.AppendTransport(transport);
   }
 
-  if (last_used_transport) {
-    StartGuidedFlowForMostLikelyTransportOrShowTransportSelection();
-  } else {
-    SetCurrentStep(Step::kWelcomeScreen);
-  }
+  StartGuidedFlowForMostLikelyTransportOrShowTransportSelection();
 }
 
 void AuthenticatorRequestDialogModel::
@@ -126,26 +146,54 @@ void AuthenticatorRequestDialogModel::StartGuidedFlowForTransport(
       SetCurrentStep(Step::kTransportSelection);
       break;
     case AuthenticatorTransport::kInternal:
-      SetCurrentStep(Step::kTouchId);
-      TryTouchId();
+      StartTouchIdFlow();
       break;
     case AuthenticatorTransport::kBluetoothLowEnergy:
-      SetCurrentStep(Step::kBleActivate);
+      EnsureBleAdapterIsPoweredBeforeContinuingWithStep(Step::kBleActivate);
       break;
     case AuthenticatorTransport::kCloudAssistedBluetoothLowEnergy:
-      SetCurrentStep(Step::kCableActivate);
+      EnsureBleAdapterIsPoweredBeforeContinuingWithStep(Step::kCableActivate);
       break;
     default:
       break;
   }
 }
 
-void AuthenticatorRequestDialogModel::TryIfBleAdapterIsPowered() {
-  DCHECK_EQ(current_step(), Step::kBlePowerOnManual);
+void AuthenticatorRequestDialogModel::
+    EnsureBleAdapterIsPoweredBeforeContinuingWithStep(Step next_step) {
+  DCHECK(current_step() == Step::kTransportSelection ||
+         current_step() == Step::kWelcomeScreen ||
+         current_step() == Step::kUsbInsertAndActivate ||
+         current_step() == Step::kTouchId ||
+         current_step() == Step::kBleActivate ||
+         current_step() == Step::kCableActivate ||
+         current_step() == Step::kNotStarted);
+  if (ble_adapter_is_powered()) {
+    SetCurrentStep(next_step);
+  } else {
+    next_step_once_ble_powered_ = next_step;
+    if (transport_availability()->can_power_on_ble_adapter)
+      SetCurrentStep(Step::kBlePowerOnAutomatic);
+    else
+      SetCurrentStep(Step::kBlePowerOnManual);
+  }
+}
+
+void AuthenticatorRequestDialogModel::ContinueWithFlowAfterBleAdapterPowered() {
+  DCHECK(current_step() == Step::kBlePowerOnManual ||
+         current_step() == Step::kBlePowerOnAutomatic);
+  DCHECK(ble_adapter_is_powered());
+  DCHECK(next_step_once_ble_powered_.has_value());
+
+  SetCurrentStep(*next_step_once_ble_powered_);
 }
 
 void AuthenticatorRequestDialogModel::PowerOnBleAdapter() {
   DCHECK_EQ(current_step(), Step::kBlePowerOnAutomatic);
+  if (!bluetooth_adapter_power_on_callback_)
+    return;
+
+  bluetooth_adapter_power_on_callback_.Run();
 }
 
 void AuthenticatorRequestDialogModel::StartBleDiscovery() {
@@ -166,45 +214,50 @@ void AuthenticatorRequestDialogModel::TryUsbDevice() {
   DCHECK_EQ(current_step(), Step::kUsbInsertAndActivate);
 }
 
-void AuthenticatorRequestDialogModel::TryTouchId() {
-  if (!request_callback_)
+void AuthenticatorRequestDialogModel::StartTouchIdFlow() {
+  // Never try Touch ID if the request is known in advance to fail. Proceed to
+  // a special error screen instead.
+  if (transport_availability_.request_type ==
+          device::FidoRequestHandlerBase::RequestType::kGetAssertion &&
+      !transport_availability_.has_recognized_mac_touch_id_credential) {
+    SetCurrentStep(Step::kErrorInternalUnrecognized);
     return;
+  }
 
-  auto touch_id_authenticator =
+  SetCurrentStep(Step::kTouchId);
+
+  auto touch_id_authenticator_it =
       std::find_if(saved_authenticators_.begin(), saved_authenticators_.end(),
                    [](const auto& authenticator) {
                      return authenticator.transport ==
                             device::FidoTransportProtocol::kInternal;
                    });
 
-  if (touch_id_authenticator == saved_authenticators_.end())
+  if (touch_id_authenticator_it == saved_authenticators_.end())
     return;
 
   static base::TimeDelta kTouchIdDispatchDelay =
       base::TimeDelta::FromMilliseconds(1250);
-
-  base::SequencedTaskRunnerHandle::Get()->PostDelayedTask(
-      FROM_HERE,
-      base::BindOnce(request_callback_,
-                     touch_id_authenticator->authenticator_id),
-      kTouchIdDispatchDelay);
+  DispatchRequestAsync(&*touch_id_authenticator_it, kTouchIdDispatchDelay);
 }
 
 void AuthenticatorRequestDialogModel::Cancel() {
+  if (is_request_complete()) {
+    SetCurrentStep(Step::kClosed);
+    return;
+  }
+
   for (auto& observer : observers_)
     observer.OnCancelRequest();
 }
 
 void AuthenticatorRequestDialogModel::Back() {
-  if (current_step() == Step::kWelcomeScreen) {
-    Cancel();
-  } else if (current_step() == Step::kTransportSelection) {
-    SetCurrentStep(Step::kWelcomeScreen);
-  } else {
-    SetCurrentStep(transport_availability_.available_transports.size() >= 2u
-                       ? Step::kTransportSelection
-                       : Step::kWelcomeScreen);
-  }
+  SetCurrentStep(Step::kTransportSelection);
+}
+
+void AuthenticatorRequestDialogModel::OnSheetModelDidChange() {
+  for (auto& observer : observers_)
+    observer.OnSheetModelChanged();
 }
 
 void AuthenticatorRequestDialogModel::AddObserver(Observer* observer) {
@@ -216,19 +269,63 @@ void AuthenticatorRequestDialogModel::RemoveObserver(Observer* observer) {
 }
 
 void AuthenticatorRequestDialogModel::OnRequestComplete() {
-  SetCurrentStep(Step::kCompleted);
+  DCHECK_NE(current_step(), Step::kClosed);
+  if (is_showing_post_mortem())
+    return;
+  SetCurrentStep(Step::kClosed);
 }
 
 void AuthenticatorRequestDialogModel::OnRequestTimeout() {
-  SetCurrentStep(Step::kErrorTimedOut);
+  DCHECK(!is_request_complete());
+  SetCurrentStep(Step::kPostMortemTimedOut);
+}
+
+void AuthenticatorRequestDialogModel::OnActivatedKeyNotRegistered() {
+  DCHECK(!is_request_complete());
+  SetCurrentStep(Step::kPostMortemKeyNotRegistered);
+}
+
+void AuthenticatorRequestDialogModel::OnActivatedKeyAlreadyRegistered() {
+  DCHECK(!is_request_complete());
+  SetCurrentStep(Step::kPostMortemKeyAlreadyRegistered);
 }
 
 void AuthenticatorRequestDialogModel::OnBluetoothPoweredStateChanged(
     bool powered) {
   transport_availability_.is_ble_powered = powered;
+
+  for (auto& observer : observers_)
+    observer.OnBluetoothPoweredStateChanged();
+
+  // For the manual flow, the user has to click the "next" button explicitly.
+  if (current_step() == Step::kBlePowerOnAutomatic)
+    ContinueWithFlowAfterBleAdapterPowered();
 }
 
 void AuthenticatorRequestDialogModel::SetRequestCallback(
-    device::FidoRequestHandlerBase::RequestCallback request_callback) {
+    RequestCallback request_callback) {
   request_callback_ = request_callback;
+}
+
+void AuthenticatorRequestDialogModel::SetBluetoothAdapterPowerOnCallback(
+    base::RepeatingClosure bluetooth_adapter_power_on_callback) {
+  bluetooth_adapter_power_on_callback_ = bluetooth_adapter_power_on_callback;
+}
+
+void AuthenticatorRequestDialogModel::DispatchRequestAsync(
+    AuthenticatorReference* authenticator,
+    base::TimeDelta delay) {
+  if (!request_callback_)
+    return;
+
+  // Dispatching to the same authenticator twice may result in unexpected
+  // behavior.
+  if (authenticator->dispatched)
+    return;
+
+  base::SequencedTaskRunnerHandle::Get()->PostDelayedTask(
+      FROM_HERE,
+      base::BindOnce(request_callback_, authenticator->authenticator_id),
+      delay);
+  authenticator->dispatched = true;
 }

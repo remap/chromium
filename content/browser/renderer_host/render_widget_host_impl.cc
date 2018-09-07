@@ -351,7 +351,6 @@ RenderWidgetHostImpl::RenderWidgetHostImpl(RenderWidgetHostDelegate* delegate,
       is_unresponsive_(false),
       in_flight_event_count_(0),
       in_get_backing_store_(false),
-      ignore_input_events_(false),
       text_direction_updated_(false),
       text_direction_(blink::kWebTextDirectionLeftToRight),
       text_direction_canceled_(false),
@@ -1196,19 +1195,8 @@ void RenderWidgetHostImpl::DidNavigate(uint32_t next_source_id) {
     // |visual_properties_ack_pending_| and make sure the next resize will be
     // acked if the last resize before navigation was supposed to be acked.
     visual_properties_ack_pending_ = false;
-    viz::LocalSurfaceId old_surface_id = view_->GetLocalSurfaceId();
     if (view_)
       view_->DidNavigate();
-    viz::LocalSurfaceId new_surface_id = view_->GetLocalSurfaceId();
-    // If |view_| didn't allocate a new surface id, then don't start
-    // |new_content_rendering_timeout_|. Two reasons:
-    //  1. It's not needed (because this was the first navigation event)
-    //  2. If we don't change the surface id, then we will not get the call to
-    //     OnFirstSurfaceActivation, and not stop the timer (even if we get new
-    //     frames).
-    // https://crbug.com/853651, https://crbug.com/535375
-    if (old_surface_id == new_surface_id)
-      return;
   } else {
     // It is possible for a compositor frame to arrive before the browser is
     // notified about the page being committed, in which case no timer is
@@ -1254,7 +1242,11 @@ void RenderWidgetHostImpl::ForwardMouseEventWithLatencyInfo(
       return;
   }
 
-  if (ShouldDropInputEvents())
+  if (IsIgnoringInputEvents())
+    return;
+
+  // Delegate must be non-null, due to |IsIgnoringInputEvents()| test.
+  if (delegate_->PreHandleMouseEvent(mouse_event))
     return;
 
   auto* touch_emulator = GetExistingTouchEmulator();
@@ -1280,7 +1272,7 @@ void RenderWidgetHostImpl::ForwardWheelEventWithLatencyInfo(
   TRACE_EVENT2("input", "RenderWidgetHostImpl::ForwardWheelEvent", "dx",
                wheel_event.delta_x, "dy", wheel_event.delta_y);
 
-  if (ShouldDropInputEvents())
+  if (IsIgnoringInputEvents())
     return;
 
   auto* touch_emulator = GetExistingTouchEmulator();
@@ -1311,7 +1303,7 @@ void RenderWidgetHostImpl::ForwardGestureEventWithLatencyInfo(
   TRACE_EVENT1("input", "RenderWidgetHostImpl::ForwardGestureEvent", "type",
                WebInputEvent::GetName(gesture_event.GetType()));
   // Early out if necessary, prior to performing latency logic.
-  if (ShouldDropInputEvents())
+  if (IsIgnoringInputEvents())
     return;
 
   bool scroll_update_needs_wrapping = false;
@@ -1400,7 +1392,7 @@ void RenderWidgetHostImpl::ForwardGestureEventWithLatencyInfo(
             gesture_event));
   }
 
-  // Delegate must be non-null, due to |ShouldDropInputEvents()| test.
+  // Delegate must be non-null, due to |IsIgnoringInputEvents()| test.
   if (delegate_->PreHandleGestureEvent(gesture_event))
     return;
 
@@ -1466,7 +1458,7 @@ void RenderWidgetHostImpl::ForwardKeyboardEventWithCommands(
     return;
   }
 
-  if (ShouldDropInputEvents())
+  if (IsIgnoringInputEvents())
     return;
 
   if (!process_->IsInitializedAndNotDead())
@@ -2436,10 +2428,6 @@ RenderWidgetHostImpl::GetKeyboardLayoutMap() {
   return view_->GetKeyboardLayoutMap();
 }
 
-void RenderWidgetHostImpl::SetIgnoreInputEvents(bool ignore_input_events) {
-  ignore_input_events_ = ignore_input_events;
-}
-
 bool RenderWidgetHostImpl::KeyPressListenersHandleEvent(
     const NativeWebKeyboardEvent& event) {
   if (event.skip_in_browser || event.GetType() != WebKeyboardEvent::kRawKeyDown)
@@ -2467,7 +2455,7 @@ InputEventAckState RenderWidgetHostImpl::FilterInputEvent(
   // Don't ignore touch cancel events, since they may be sent while input
   // events are being ignored in order to keep the renderer from getting
   // confused about how many touches are active.
-  if (ShouldDropInputEvents() && event.GetType() != WebInputEvent::kTouchCancel)
+  if (IsIgnoringInputEvents() && event.GetType() != WebInputEvent::kTouchCancel)
     return INPUT_EVENT_ACK_STATE_NO_CONSUMER_EXISTS;
 
   if (!process_->IsInitializedAndNotDead())
@@ -2637,8 +2625,9 @@ void RenderWidgetHostImpl::OnUnexpectedEventAck(UnexpectedEventAckType type) {
   }
 }
 
-bool RenderWidgetHostImpl::ShouldDropInputEvents() const {
-  return ignore_input_events_ || process_->IgnoreInputEvents() || !delegate_;
+bool RenderWidgetHostImpl::IsIgnoringInputEvents() const {
+  return process_->IgnoreInputEvents() || !delegate_ ||
+         delegate_->ShouldIgnoreInputEvents();
 }
 
 void RenderWidgetHostImpl::SetBackgroundOpaque(bool opaque) {

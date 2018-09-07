@@ -199,6 +199,12 @@ Service* SmbService::GetProviderService() const {
 }
 
 SmbProviderClient* SmbService::GetSmbProviderClient() const {
+  // If the DBusThreadManager or the SmbProviderClient aren't available,
+  // there isn't much we can do. This should only happen when running tests.
+  if (!chromeos::DBusThreadManager::IsInitialized() ||
+      !chromeos::DBusThreadManager::Get()) {
+    return nullptr;
+  }
   return chromeos::DBusThreadManager::Get()->GetSmbProviderClient();
 }
 
@@ -266,6 +272,11 @@ void SmbService::StartSetup() {
     return;
   }
 
+  SmbProviderClient* client = GetSmbProviderClient();
+  if (!client) {
+    return;
+  }
+
   if (user->IsActiveDirectoryUser()) {
     auto account_id = user->GetAccountId();
     const std::string account_id_guid = account_id.GetObjGuid();
@@ -288,7 +299,7 @@ void SmbService::SetupTempFileManagerAndCompleteSetup() {
   base::OnceClosure task =
       base::BindOnce(&SmbService::InitTempFileManager, base::Unretained(this));
   base::OnceClosure reply =
-      base::BindOnce(&SmbService::CompleteSetup, base::Unretained(this));
+      base::BindOnce(&SmbService::CompleteSetup, AsWeakPtr());
 
   base::PostTaskWithTraitsAndReply(FROM_HERE, task_traits, std::move(task),
                                    std::move(reply));

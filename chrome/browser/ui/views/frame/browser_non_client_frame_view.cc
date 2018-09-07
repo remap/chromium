@@ -162,11 +162,6 @@ gfx::ImageSkia BrowserNonClientFrameView::GetIncognitoAvatarIcon() const {
 
 SkColor BrowserNonClientFrameView::GetFrameColor(
     ActiveState active_state) const {
-  extensions::HostedAppBrowserController* hosted_app_controller =
-      browser_view_->browser()->hosted_app_controller();
-  if (hosted_app_controller && hosted_app_controller->GetThemeColor())
-    return *hosted_app_controller->GetThemeColor();
-
   ThemeProperties::OverwritableByUserThemeProperty color_id;
   if (ShouldPaintAsSingleTabMode()) {
     color_id = ThemeProperties::COLOR_TOOLBAR;
@@ -175,10 +170,26 @@ SkColor BrowserNonClientFrameView::GetFrameColor(
                    ? ThemeProperties::COLOR_FRAME
                    : ThemeProperties::COLOR_FRAME_INACTIVE;
   }
-  return ShouldPaintAsThemed()
-             ? GetThemeProviderForProfile()->GetColor(color_id)
-             : ThemeProperties::GetDefaultColor(color_id,
-                                                browser_view_->IsIncognito());
+
+  // For hosted app windows, if "painting as themed" (which is only true when on
+  // Linux and using the system theme), prefer the system theme color over the
+  // hosted app theme color. The title bar will be painted in the system theme
+  // color (regardless of what we do here), so by returning the system title bar
+  // background color here, we ensure that:
+  // a) The side and bottom borders are painted in the same color as the title
+  // bar background, and
+  // b) The title text is painted in a color that contrasts with the title bar
+  // background.
+  if (ShouldPaintAsThemed())
+    return GetThemeProviderForProfile()->GetColor(color_id);
+
+  extensions::HostedAppBrowserController* hosted_app_controller =
+      browser_view_->browser()->hosted_app_controller();
+  if (hosted_app_controller && hosted_app_controller->GetThemeColor())
+    return *hosted_app_controller->GetThemeColor();
+
+  return ThemeProperties::GetDefaultColor(color_id,
+                                          browser_view_->IsIncognito());
 }
 
 SkColor BrowserNonClientFrameView::GetToolbarTopSeparatorColor() const {
@@ -526,18 +537,22 @@ bool BrowserNonClientFrameView::DoesIntersectRect(const views::View* target,
   // Otherwise, claim |rect| only if it is above the bottom of the tabstrip in
   // a non-tab portion.
   TabStrip* tabstrip = browser_view_->tabstrip();
-  gfx::RectF rect_in_tabstrip_coords_f(rect);
-  View::ConvertRectToTarget(this, tabstrip, &rect_in_tabstrip_coords_f);
-  gfx::Rect rect_in_tabstrip_coords =
-      gfx::ToEnclosingRect(rect_in_tabstrip_coords_f);
-  if (rect_in_tabstrip_coords.y() >= tabstrip->GetLocalBounds().bottom()) {
-    // |rect| is below the tabstrip.
-    return false;
-  }
+  // The tabstrip may not be in a Widget (e.g. when switching into immersive
+  // reveal).
+  if (tabstrip->GetWidget()) {
+    gfx::RectF rect_in_tabstrip_coords_f(rect);
+    View::ConvertRectToTarget(this, tabstrip, &rect_in_tabstrip_coords_f);
+    gfx::Rect rect_in_tabstrip_coords =
+        gfx::ToEnclosingRect(rect_in_tabstrip_coords_f);
+    if (rect_in_tabstrip_coords.y() >= tabstrip->GetLocalBounds().bottom()) {
+      // |rect| is below the tabstrip.
+      return false;
+    }
 
-  if (tabstrip->HitTestRect(rect_in_tabstrip_coords)) {
-    // Claim |rect| if it is in a non-tab portion of the tabstrip.
-    return tabstrip->IsRectInWindowCaption(rect_in_tabstrip_coords);
+    if (tabstrip->HitTestRect(rect_in_tabstrip_coords)) {
+      // Claim |rect| if it is in a non-tab portion of the tabstrip.
+      return tabstrip->IsRectInWindowCaption(rect_in_tabstrip_coords);
+    }
   }
 
   // We claim |rect| because it is above the bottom of the tabstrip, but

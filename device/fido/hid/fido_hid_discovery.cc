@@ -57,6 +57,7 @@ void FidoHidDiscovery::OnGetDevices(
     std::vector<device::mojom::HidDeviceInfoPtr> device_infos) {
   for (auto& device_info : device_infos)
     DeviceAdded(std::move(device_info));
+
   NotifyDiscoveryStarted(true);
 }
 

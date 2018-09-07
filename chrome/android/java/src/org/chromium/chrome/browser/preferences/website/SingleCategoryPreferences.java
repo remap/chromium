@@ -251,7 +251,8 @@ public class SingleCategoryPreferences extends PreferenceFragment
                 Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
 
         // Gray out the total count of items.
-        int gray = ApiCompatibilityUtils.getColor(getResources(), R.color.black_alpha_54);
+        int gray = ApiCompatibilityUtils.getColor(
+                getResources(), R.color.default_text_color_secondary);
         spannable.setSpan(new ForegroundColorSpan(gray), spannable.length() - prefCount.length(),
                 spannable.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
         return spannable;
@@ -758,8 +759,6 @@ public class SingleCategoryPreferences extends PreferenceFragment
         PreferenceGroup blockedGroup = (PreferenceGroup) screen.findPreference(BLOCKED_GROUP);
 
         // For these categories, no binary, tri-state or custom toggles should be shown.
-        // TODO(xhwang): Add a test to make sure no toggles are shown on the ALL_SITES
-        // and USE_STORAGE category.
         boolean hideAllToggles = mCategory.showSites(SiteSettingsCategory.Type.ALL_SITES)
                 || mCategory.showSites(SiteSettingsCategory.Type.USE_STORAGE)
                 || mCategory.showPermissionBlockedMessage(getActivity());

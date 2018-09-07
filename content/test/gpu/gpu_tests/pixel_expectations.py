@@ -118,7 +118,6 @@ class PixelExpectations(GpuTestExpectations):
     self.Flaky('Pixel_OffscreenCanvas2DResizeOnWorker',
         ['linux', 'mac'], bug=840394)
     self.Fail('Pixel_WorkerRAF_OOPD', ['android', 'nvidia'], bug=833902)
-    self.Fail('Pixel_WorkerRAF_OOPD', ['mac'], bug=851213)
 
     # TODO(kbr): temporary suppression for new test.
     self.Flaky('Pixel_WebGLSadCanvas', ['linux', 'win'], bug=575305)
@@ -132,9 +131,3 @@ class PixelExpectations(GpuTestExpectations):
     self.Fail('Pixel_CanvasLowLatencyWebGL', ['android', 'nvidia'], bug=868596)
     self.Fail('Pixel_OffscreenCanvasWebGLPaintAfterResize',
               ['android', 'nvidia'], bug=868596)
-
-    # Failing on FYI Nexus 5: crbug.com/870023
-    self.Fail('Pixel_WebGLGreenTriangle_NoAA_Alpha',
-        ['android', ('qualcomm', 'Adreno (TM) 330')], bug=870023)
-    self.Fail('Pixel_WebGLGreenTriangle_NoAA_NoAlpha',
-        ['android', ('qualcomm', 'Adreno (TM) 330')], bug=870023)

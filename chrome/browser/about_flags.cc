@@ -122,6 +122,7 @@
 #include "ppapi/buildflags/buildflags.h"
 #include "printing/buildflags/buildflags.h"
 #include "services/device/public/cpp/device_features.h"
+#include "services/media_session/public/cpp/switches.h"
 #include "services/network/public/cpp/features.h"
 #include "services/network/public/cpp/network_switches.h"
 #include "services/resource_coordinator/public/cpp/resource_coordinator_features.h"
@@ -484,13 +485,15 @@ const FeatureEntry::Choice kMemoryPressureThresholdChoices[] = {
 };
 #endif  // OS_CHROMEOS
 
-const FeatureEntry::FeatureParam kIdnNavigationSuggestionsMetricsOnly[] = {
-    {"metrics_only", "true"},
+const FeatureEntry::FeatureParam
+    kLookalikeUrlNavigationSuggestionsMetricsOnly[] = {
+        {"metrics_only", "true"},
 };
 
-const FeatureEntry::FeatureVariation kIdnNavigationSuggestionVariants[] = {
-    {"With Metrics Only", kIdnNavigationSuggestionsMetricsOnly,
-     base::size(kIdnNavigationSuggestionsMetricsOnly)}};
+const FeatureEntry::FeatureVariation
+    kLookalikeUrlNavigationSuggestionsVariants[] = {
+        {"With Metrics Only", kLookalikeUrlNavigationSuggestionsMetricsOnly,
+         base::size(kLookalikeUrlNavigationSuggestionsMetricsOnly)}};
 
 const FeatureEntry::Choice kExtensionContentVerificationChoices[] = {
     {flags_ui::kGenericExperimentChoiceDefault, "", ""},
@@ -773,11 +776,12 @@ const FeatureEntry::Choice kTLS13VariantChoices[] = {
 #if !defined(OS_ANDROID)
 const FeatureEntry::Choice kEnableAudioFocusChoices[] = {
     {flag_descriptions::kEnableAudioFocusDisabled, "", ""},
-    {flag_descriptions::kEnableAudioFocusEnabled, switches::kEnableAudioFocus,
-     ""},
+    {flag_descriptions::kEnableAudioFocusEnabled,
+     media_session::switches::kEnableAudioFocus, ""},
 #if BUILDFLAG(ENABLE_PLUGINS)
     {flag_descriptions::kEnableAudioFocusEnabledDuckFlash,
-     switches::kEnableAudioFocus, switches::kEnableAudioFocusDuckFlash},
+     media_session::switches::kEnableAudioFocus,
+     media_session::switches::kEnableAudioFocusDuckFlash},
 #endif  // BUILDFLAG(ENABLE_PLUGINS)
 };
 #endif  // !defined(OS_ANDROID)
@@ -1732,7 +1736,7 @@ const FeatureEntry kFeatureEntries[] = {
      SINGLE_VALUE_TYPE(chromeos::switches::kShelfHoverPreviews)},
     {"shelf-new-ui", flag_descriptions::kShelfNewUiName,
      flag_descriptions::kShelfNewUiDescription, kOsCrOS,
-     SINGLE_VALUE_TYPE(chromeos::switches::kShelfNewUi)},
+     FEATURE_VALUE_TYPE(chromeos::switches::kEnableShelfNewUi)},
     {"show-taps", flag_descriptions::kShowTapsName,
      flag_descriptions::kShowTapsDescription, kOsCrOS,
      SINGLE_VALUE_TYPE(ash::switches::kShowTaps)},
@@ -2035,6 +2039,10 @@ const FeatureEntry kFeatureEntries[] = {
          language::kOverrideTranslateTriggerInIndia,
          kTranslateForceTriggerOnEnglishVariations,
          language::kOverrideTranslateTriggerInIndia.name)},
+    {"translate-explicit-ask",
+     flag_descriptions::kTranslateExplicitLanguageAskName,
+     flag_descriptions::kTranslateExplicitLanguageAskDescription, kOsAndroid,
+     FEATURE_VALUE_TYPE(language::kExplicitLanguageAsk)},
 #endif  // OS_ANDROID
     {"translate-ranker-enforcement",
      flag_descriptions::kTranslateRankerEnforcementName,
@@ -3112,7 +3120,7 @@ const FeatureEntry kFeatureEntries[] = {
     {"enable-autofill-native-dropdown-views",
      flag_descriptions::kEnableAutofillNativeDropdownViewsName,
      flag_descriptions::kEnableAutofillNativeDropdownViewsDescription, kOsAll,
-     FEATURE_VALUE_TYPE(autofill::kAutofillExpandedPopupViews)},
+     FEATURE_VALUE_TYPE(autofill::features::kAutofillExpandedPopupViews)},
     {"enable-autofill-save-card-dialog-unlabeled-expiration-date",
      flag_descriptions::
          kEnableAutofillSaveCardDialogUnlabeledExpirationDateName,
@@ -3252,6 +3260,13 @@ const FeatureEntry kFeatureEntries[] = {
      flag_descriptions::kSpeculativeServiceWorkerStartOnQueryInputDescription,
      kOsAll,
      FEATURE_VALUE_TYPE(omnibox::kSpeculativeServiceWorkerStartOnQueryInput)},
+
+    // NOTE: This feature is generic and marked kOsAll but is used only in CrOS
+    // for AndroidMessagesIntegration feature.
+    {"enable-service-worker-long-running-message",
+     flag_descriptions::kServiceWorkerLongRunningMessageName,
+     flag_descriptions::kServiceWorkerLongRunningMessageDescription, kOsAll,
+     FEATURE_VALUE_TYPE(features::kServiceWorkerLongRunningMessage)},
 
 #if defined(OS_MACOSX)
     {"tab-strip-keyboard-focus", flag_descriptions::kTabStripKeyboardFocusName,
@@ -4063,6 +4078,11 @@ const FeatureEntry kFeatureEntries[] = {
      kOsAll,
      FEATURE_VALUE_TYPE(
          autofill::features::kAutofillEnforceMinRequiredFieldsForUpload)},
+    {"autofill-no-local-save-on-upload-success",
+     flag_descriptions::kAutofillNoLocalSaveOnUploadSuccessName,
+     flag_descriptions::kAutofillNoLocalSaveOnUploadSuccessDescription, kOsAll,
+     FEATURE_VALUE_TYPE(
+         autofill::features::kAutofillNoLocalSaveOnUploadSuccess)},
     {"single-click-autofill", flag_descriptions::kSingleClickAutofillName,
      flag_descriptions::kSingleClickAutofillDescription, kOsAll,
      FEATURE_VALUE_TYPE(autofill::features::kSingleClickAutofill)},
@@ -4303,12 +4323,14 @@ const FeatureEntry kFeatureEntries[] = {
      FEATURE_VALUE_TYPE(features::kIncognitoStrings)},
 #endif
 
-    {"enable-idn-navigation-suggestions",
-     flag_descriptions::kIdnNavigationSuggestionsName,
-     flag_descriptions::kIdnNavigationSuggestionsDescription, kOsDesktop,
-     FEATURE_WITH_PARAMS_VALUE_TYPE(features::kIdnNavigationSuggestions,
-                                    kIdnNavigationSuggestionVariants,
-                                    "IdnNavigationSuggestions")},
+    {"enable-lookalike-url-navigation-suggestions",
+     flag_descriptions::kLookalikeUrlNavigationSuggestionsName,
+     flag_descriptions::kLookalikeUrlNavigationSuggestionsDescription,
+     kOsDesktop,
+     FEATURE_WITH_PARAMS_VALUE_TYPE(
+         features::kLookalikeUrlNavigationSuggestions,
+         kLookalikeUrlNavigationSuggestionsVariants,
+         "LookalikeUrlNavigationSuggestions")},
 
 #if defined(OS_ANDROID)
     {"long-press-back-for-history",
@@ -4380,7 +4402,32 @@ const FeatureEntry kFeatureEntries[] = {
      flag_descriptions::kVaapiJpegImageDecodeAccelerationName,
      flag_descriptions::kVaapiJpegImageDecodeAccelerationDescription, kOsCrOS,
      FEATURE_VALUE_TYPE(features::kVaapiJpegImageDecodeAcceleration)},
+
+    {"enable-home-launcher-gestures",
+     flag_descriptions::kEnableHomeLauncherGesturesName,
+     flag_descriptions::kEnableHomeLauncherGesturesDescription, kOsCrOS,
+     FEATURE_VALUE_TYPE(app_list::features::kEnableHomeLauncherGestures)},
 #endif
+
+#if !defined(OS_ANDROID)
+    {"happiness-tarcking-surveys-for-desktop",
+     flag_descriptions::kHappinessTrackingSurveysForDesktopName,
+     flag_descriptions::kHappinessTrackingSurveysForDesktopDescription,
+     kOsDesktop,
+     FEATURE_VALUE_TYPE(features::kHappinessTrackingSurveysForDesktop)},
+#endif  // !defined(OS_ANDROID)
+
+    {"enable-service-worker-imported-script-update-check",
+     flag_descriptions::kServiceWorkerImportedScriptUpdateCheckName,
+     flag_descriptions::kServiceWorkerImportedScriptUpdateCheckDescription,
+     kOsAll,
+     FEATURE_VALUE_TYPE(
+         blink::features::kServiceWorkerImportedScriptUpdateCheck)},
+
+    {"sync-support-secondary-account",
+     flag_descriptions::kSyncSupportSecondaryAccountName,
+     flag_descriptions::kSyncSupportSecondaryAccountDescription, kOsAll,
+     FEATURE_VALUE_TYPE(switches::kSyncSupportSecondaryAccount)},
 
     // NOTE: Adding a new flag requires adding a corresponding entry to enum
     // "LoginCustomFlags" in tools/metrics/histograms/enums.xml. See "Flag

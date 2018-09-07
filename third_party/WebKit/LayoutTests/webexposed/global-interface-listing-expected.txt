@@ -1559,6 +1559,7 @@ interface Document : Node
     getter onpointermove
     getter onpointerout
     getter onpointerover
+    getter onpointerrawmove
     getter onpointerup
     getter onprogress
     getter onratechange
@@ -1749,6 +1750,7 @@ interface Document : Node
     setter onpointermove
     setter onpointerout
     setter onpointerover
+    setter onpointerrawmove
     setter onpointerup
     setter onprogress
     setter onratechange
@@ -2252,6 +2254,7 @@ interface HTMLAnchorElement : HTMLElement
     getter host
     getter hostname
     getter href
+    getter hrefTranslate
     getter hreflang
     getter name
     getter origin
@@ -2279,6 +2282,7 @@ interface HTMLAnchorElement : HTMLElement
     setter host
     setter hostname
     setter href
+    setter hrefTranslate
     setter hreflang
     setter name
     setter password
@@ -2589,6 +2593,7 @@ interface HTMLElement : Element
     getter onpointermove
     getter onpointerout
     getter onpointerover
+    getter onpointerrawmove
     getter onpointerup
     getter onprogress
     getter onratechange
@@ -2686,6 +2691,7 @@ interface HTMLElement : Element
     setter onpointermove
     setter onpointerout
     setter onpointerover
+    setter onpointerrawmove
     setter onpointerup
     setter onprogress
     setter onratechange
@@ -2937,6 +2943,7 @@ interface HTMLImageElement : HTMLElement
     getter height
     getter hspace
     getter importance
+    getter intrinsicSize
     getter isMap
     getter longDesc
     getter lowsrc
@@ -2962,6 +2969,7 @@ interface HTMLImageElement : HTMLElement
     setter height
     setter hspace
     setter importance
+    setter intrinsicSize
     setter isMap
     setter longDesc
     setter lowsrc
@@ -3408,7 +3416,9 @@ interface HTMLPictureElement : HTMLElement
     method constructor
 interface HTMLPortalElement : HTMLElement
     attribute @@toStringTag
+    getter src
     method constructor
+    setter src
 interface HTMLPreElement : HTMLElement
     attribute @@toStringTag
     getter width
@@ -3753,6 +3763,7 @@ interface HTMLVideoElement : HTMLMediaElement
     attribute @@toStringTag
     getter disablePictureInPicture
     getter height
+    getter intrinsicSize
     getter onenterpictureinpicture
     getter onleavepictureinpicture
     getter onpictureinpicturecontrolclick
@@ -3774,6 +3785,7 @@ interface HTMLVideoElement : HTMLMediaElement
     method webkitExitFullscreen
     setter disablePictureInPicture
     setter height
+    setter intrinsicSize
     setter onenterpictureinpicture
     setter onleavepictureinpicture
     setter onpictureinpicturecontrolclick
@@ -3979,6 +3991,7 @@ interface Image
     getter height
     getter hspace
     getter importance
+    getter intrinsicSize
     getter isMap
     getter longDesc
     getter lowsrc
@@ -4004,6 +4017,7 @@ interface Image
     setter height
     setter hspace
     setter importance
+    setter intrinsicSize
     setter isMap
     setter longDesc
     setter lowsrc
@@ -5509,11 +5523,19 @@ interface RTCPeerConnectionIceEvent : Event
     attribute @@toStringTag
     getter candidate
     method constructor
+interface RTCQuicStream
+    attribute @@toStringTag
+    getter readBufferedAmount
+    getter state
+    getter transport
+    getter writeBufferedAmount
+    method constructor
 interface RTCQuicTransport
     attribute @@toStringTag
     getter state
     getter transport
     method constructor
+    method createStream
     method getCertificates
     method getLocalParameters
     method getRemoteCertificates
@@ -5915,6 +5937,7 @@ interface SVGElement : Element
     getter onpointermove
     getter onpointerout
     getter onpointerover
+    getter onpointerrawmove
     getter onpointerup
     getter onprogress
     getter onratechange
@@ -5999,6 +6022,7 @@ interface SVGElement : Element
     setter onpointermove
     setter onpointerout
     setter onpointerover
+    setter onpointerrawmove
     setter onpointerup
     setter onprogress
     setter onratechange
@@ -7328,6 +7352,7 @@ interface TrustedTypePolicyFactory
     attribute @@toStringTag
     method constructor
     method createPolicy
+    method getExposedPolicy
     method getPolicyNames
 interface TrustedURL
     static method create
@@ -9818,6 +9843,7 @@ interface WebGPUDevice
     attribute @@toStringTag
     getter adapter
     method constructor
+    method dummy
 interface WebKitAnimationEvent : Event
     attribute @@toStringTag
     getter animationName
@@ -10475,6 +10501,7 @@ interface webkitURL
     getter onpointermove
     getter onpointerout
     getter onpointerover
+    getter onpointerrawmove
     getter onpointerup
     getter onpopstate
     getter onprogress
@@ -10661,6 +10688,7 @@ interface webkitURL
     setter onpointermove
     setter onpointerout
     setter onpointerover
+    setter onpointerrawmove
     setter onpointerup
     setter onpopstate
     setter onprogress

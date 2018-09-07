@@ -803,10 +803,6 @@ const char kPinUnlockMaximumLength[] = "pin_unlock_maximum_length";
 // Boolean pref indicating whether users are allowed to set easy pins.
 const char kPinUnlockWeakPinsAllowed[] = "pin_unlock_weak_pins_allowed";
 
-// Boolean pref indicating whether fingerprint unlock is enabled.
-const char kEnableQuickUnlockFingerprint[] =
-    "settings.enable_quick_unlock_fingerprint";
-
 // Boolean pref indicating whether this device supports BLE advertising.
 const char kInstantTetheringBleAdvertisingSupported[] =
     "tether.ble_advertising_supported";
@@ -1137,9 +1133,8 @@ const char kPrintPreviewDisabled[] = "printing.print_preview_disabled";
 const char kPrintPreviewDefaultDestinationSelectionRules[] =
     "printing.default_destination_selection_rules";
 
-// A pref holding a policy that can force 'Headers and footers' checkbox to be
-// checked/unchecked, in Print Preview. It is a |HeaderFooterEnforcement| enum
-// value.
+// The default value for the 'Headers and footers' checkbox, in Print Preview.
+// Takes priority over kPrintPreviewStickySettings if set.
 const char kPrintHeaderFooter[] = "printing.print_header_footer";
 
 #if !defined(OS_CHROMEOS) && !defined(OS_ANDROID)
@@ -1171,6 +1166,26 @@ const char kRecommendedNativePrintersWhitelist[] =
 const char kUserNativePrintersAllowed[] =
     "native_printing.user_native_printers_allowed";
 
+// A pref holding the list of allowed printing color mode as a bitmask composed
+// of |printing::ColorModeRestriction| values. 0 is no restriction.
+const char kPrintingAllowedColorModes[] = "printing.allowed_color_modes";
+
+// A pref holding the list of allowed printing duplex mode as a bitmask composed
+// of |printing::DuplexModeRestriction| values. 0 is no restriction.
+const char kPrintingAllowedDuplexModes[] = "printing.allowed_duplex_modes";
+
+// A pref holding the list of allowed printing duplex mode.
+// Empty list is no restriction.
+const char kPrintingAllowedPageSizes[] = "printing.allowed_page_sizes";
+
+// A pref holding the default color mode.
+const char kPrintingColorDefault[] = "printing.color_default";
+
+// A pref holding the default duplex mode.
+const char kPrintingDuplexDefault[] = "printing.duplex_default";
+
+// A pref holding the default page size.
+const char kPrintingSizeDefault[] = "printing.size_default";
 #endif  // OS_CHROMEOS
 
 // An integer pref specifying the fallback behavior for sites outside of content

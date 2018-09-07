@@ -268,9 +268,12 @@ CrSettingsPaymentsSectionTest.prototype = {
 
   /** @override */
   extraLibraries: CrSettingsBrowserTest.prototype.extraLibraries.concat([
+    '../test_browser_proxy.js',
     'passwords_and_autofill_fake_data.js',
+    'sync_test_util.js',
+    'test_sync_browser_proxy.js',
     'test_util.js',
-    'payments_section_test.js'
+    'payments_section_test.js',
   ]),
 };
 
@@ -416,6 +419,33 @@ CrSettingsPeoplePageChangePictureTest.prototype = {
 };
 
 TEST_F('CrSettingsPeoplePageChangePictureTest', 'All', function() {
+  mocha.run();
+});
+
+/**
+ * Test fixture for
+ * chrome/browser/resources/settings/people_page/account_manager.html.
+ *
+ * This is ChromeOS only.
+ * @constructor
+ * @extends {CrSettingsBrowserTest}
+ */
+function CrSettingsPeoplePageAccountManagerTest() {}
+
+CrSettingsPeoplePageAccountManagerTest.prototype = {
+  __proto__: CrSettingsBrowserTest.prototype,
+
+  /** @override */
+  browsePreload: 'chrome://settings/people_page/account_manager.html',
+
+  /** @override */
+  extraLibraries: CrSettingsBrowserTest.prototype.extraLibraries.concat([
+    '../test_browser_proxy.js',
+    'people_page_account_manager_test.js',
+  ]),
+};
+
+TEST_F('CrSettingsPeoplePageAccountManagerTest', 'All', function() {
   mocha.run();
 });
 

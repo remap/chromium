@@ -58,6 +58,7 @@ enum AccessibilityNotificationType {
   ACCESSIBILITY_TOGGLE_CURSOR_HIGHLIGHT,
   ACCESSIBILITY_TOGGLE_FOCUS_HIGHLIGHT,
   ACCESSIBILITY_TOGGLE_DICTATION,
+  ACCESSIBILITY_TOGGLE_DOCKED_MAGNIFIER,
 };
 
 struct AccessibilityStatusEventDetails {
@@ -304,6 +305,12 @@ class AccessibilityManager
 
   // Sets the bounds used to highlight the text input caret.
   void SetCaretBounds(const gfx::Rect& bounds_in_screen);
+
+  // Gets the startup sound user preference.
+  bool GetStartupSoundEnabled() const;
+
+  // Sets the startup sound user preference.
+  void SetStartupSoundEnabled(bool value) const;
 
   // Test helpers:
   void SetProfileForTest(Profile* profile);

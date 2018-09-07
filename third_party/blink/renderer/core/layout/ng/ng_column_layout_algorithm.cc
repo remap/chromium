@@ -115,7 +115,7 @@ scoped_refptr<NGLayoutResult> NGColumnLayoutAlgorithm::Layout() {
                                              break_token.get());
       child_algorithm.SetBoxType(NGPhysicalFragment::kColumnBox);
       scoped_refptr<NGLayoutResult> result = child_algorithm.Layout();
-      scoped_refptr<NGPhysicalBoxFragment> column(
+      scoped_refptr<const NGPhysicalBoxFragment> column(
           ToNGPhysicalBoxFragment(result->PhysicalFragment().get()));
 
       NGLogicalOffset logical_offset(column_inline_offset, column_block_offset);
@@ -196,7 +196,10 @@ base::Optional<MinMaxSize> NGColumnLayoutAlgorithm::ComputeMinMaxSize(
     const MinMaxSizeInput& input) const {
   // First calculate the min/max sizes of columns.
   NGBlockLayoutAlgorithm algorithm(Node(), ConstraintSpace());
-  base::Optional<MinMaxSize> min_max_sizes = algorithm.ComputeMinMaxSize(input);
+  MinMaxSizeInput child_input(input);
+  child_input.size_type = NGMinMaxSizeType::kContentBoxSize;
+  base::Optional<MinMaxSize> min_max_sizes =
+      algorithm.ComputeMinMaxSize(child_input);
   DCHECK(min_max_sizes.has_value());
   MinMaxSize sizes = min_max_sizes.value();
 
@@ -215,10 +218,13 @@ base::Optional<MinMaxSize> NGColumnLayoutAlgorithm::ComputeMinMaxSize(
   sizes.min_size *= column_count;
   sizes.max_size *= column_count;
   LayoutUnit column_gap = ResolveUsedColumnGap(LayoutUnit(), Style());
-  LayoutUnit gap_extra = column_gap * (column_count - 1);
-  LayoutUnit border_scrollbar_padding =
-      CalculateBorderScrollbarPadding(ConstraintSpace(), node_).InlineSum();
-  sizes += gap_extra + border_scrollbar_padding;
+  sizes += column_gap * (column_count - 1);
+
+  if (input.size_type == NGMinMaxSizeType::kBorderBoxSize) {
+    LayoutUnit border_scrollbar_padding =
+        CalculateBorderScrollbarPadding(ConstraintSpace(), node_).InlineSum();
+    sizes += border_scrollbar_padding;
+  }
 
   return sizes;
 }
@@ -255,8 +261,7 @@ LayoutUnit NGColumnLayoutAlgorithm::CalculateBalancedColumnBlockSize(
 
   // TODO(mstensho): This is where the fun begins. We need to examine the entire
   // fragment tree, not just the root.
-  NGFragment fragment(space->GetWritingMode(),
-                      *result->PhysicalFragment().get());
+  NGFragment fragment(space->GetWritingMode(), *result->PhysicalFragment());
   LayoutUnit single_strip_block_size = fragment.BlockSize();
 
   // Some extra care is required the division here. We want a the resulting

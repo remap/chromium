@@ -89,6 +89,12 @@ const char kAutofillDynamicFormsName[] = "Autofill Dynamic Forms";
 const char kAutofillDynamicFormsDescription[] =
     "Allows autofill to fill dynamically changing forms";
 
+const char kAutofillNoLocalSaveOnUploadSuccessName[] =
+    "Disable locally saving card when credit card upload succeeds";
+const char kAutofillNoLocalSaveOnUploadSuccessDescription[] =
+    "When enabled, no local copy of server card will be saved when credit card "
+    "upload succeeds.";
+
 const char kAutofillPrefilledFieldsName[] = "Autofill Prefilled Fields";
 const char kAutofillPrefilledFieldsDescription[] =
     "Allows autofill to fill fields previously filled by the website";
@@ -1042,12 +1048,6 @@ const char kIconNtpName[] = "Large icons on the New Tab page";
 const char kIconNtpDescription[] =
     "Enable the experimental New Tab page using large icons.";
 
-const char kIdnNavigationSuggestionsName[] =
-    "Navigation suggestions for internationalized domain names";
-const char kIdnNavigationSuggestionsDescription[] =
-    "Enable navigation suggestions for internationalized domain names that are "
-    "visually similar to popular domains.";
-
 const char kIgnoreGpuBlacklistName[] = "Override software rendering list";
 const char kIgnoreGpuBlacklistDescription[] =
     "Overrides the built-in software rendering list and enables "
@@ -1112,6 +1112,12 @@ const char kLoadMediaRouterComponentExtensionName[] =
     "Load Media Router Component Extension";
 const char kLoadMediaRouterComponentExtensionDescription[] =
     "Loads the Media Router component extension at startup.";
+
+const char kLookalikeUrlNavigationSuggestionsName[] =
+    "Navigation suggestions for lookalike URLs";
+const char kLookalikeUrlNavigationSuggestionsDescription[] =
+    "Enable navigation suggestions for URLs that are visually similar to "
+    "popular domains or to domains with a site engagement score.";
 
 const char kMacViewsAutofillPopupName[] =
     "Uses the Views Autofill Popup on Mac";
@@ -1610,6 +1616,12 @@ const char kServiceWorkerPaymentAppsName[] = "Service Worker payment apps";
 const char kServiceWorkerPaymentAppsDescription[] =
     "Enable Service Worker applications to integrate as payment apps";
 
+const char kServiceWorkerImportedScriptUpdateCheckName[] =
+    "Enable update check for service worker importScripts() resources";
+const char kServiceWorkerImportedScriptUpdateCheckDescription[] =
+    "Extend byte-for-byte update check for scripts that are imported by the "
+    "service worker script via importScripts().";
+
 extern const char kServiceWorkerServicificationName[] =
     "Servicified service workers";
 extern const char kServiceWorkerServicificationDescription[] =
@@ -1621,6 +1633,13 @@ const char kServiceWorkerScriptFullCodeCacheName[] =
     "Service worker script full code cache.";
 const char kServiceWorkerScriptFullCodeCacheDescription[] =
     "Generate V8 full code cache of Service Worker scripts while installing.";
+
+const char kServiceWorkerLongRunningMessageName[] =
+    "Service worker long running message dispatch.";
+const char kServiceWorkerLongRunningMessageDescription[] =
+    "Enables long running message dispatch method for service workers. "
+    "Messages sent with this method do not timeout, allowing the service "
+    "worker to run indefinitely.";
 
 const char kSettingsWindowName[] = "Show settings in a window";
 const char kSettingsWindowDescription[] =
@@ -1811,6 +1830,13 @@ const char kSyncStandaloneTransportDescription[] =
     "this mode, the Sync machinery can start without user opt-in, but only a "
     "subset of data types are supported.";
 
+const char kSyncSupportSecondaryAccountName[] =
+    "Support secondary accounts for Sync standalone transport";
+const char kSyncSupportSecondaryAccountDescription[] =
+    "If enabled, allows Chrome Sync to start in standalone transport mode for "
+    "a signed-in account that has not been chosen as Chrome's primary account. "
+    "This only has an effect if sync-standalone-transport is also enabled.";
+
 const char kSyncUSSAutofillWalletDataName[] =
     "Enable USS for autofill wallet data";
 const char kSyncUSSAutofillWalletDataDescription[] =
@@ -1930,6 +1956,12 @@ const char kTraceUploadUrlChoiceOther[] = "Other";
 const char kTraceUploadUrlChoiceEmloading[] = "emloading";
 const char kTraceUploadUrlChoiceQa[] = "QA";
 const char kTraceUploadUrlChoiceTesting[] = "Testing";
+
+const char kTranslateExplicitLanguageAskName[] =
+    "Explicitly ask for language preferences";
+const char kTranslateExplicitLanguageAskDescription[] =
+    "Explicitly ask the user which languages they can read on Chrome startup, "
+    "on the first run that doesn't already have a promo.";
 
 const char kTranslateForceTriggerOnEnglishName[] =
     "Select which language model to use to trigger translate on English "
@@ -2793,6 +2825,11 @@ const char kEnableWebAuthenticationTestingAPIDescription[] =
     "implementation from the real world, and allows configuring virtual "
     "authenticator devices for testing";
 
+const char kHappinessTrackingSurveysForDesktopName[] =
+    "Happiness Tracking Surveys";
+const char kHappinessTrackingSurveysForDesktopDescription[] =
+    "Enable showing Happiness Tracking Surveys to users on Desktop";
+
 const char kOmniboxRichEntitySuggestionsName[] =
     "Omnibox rich entity suggestions";
 const char kOmniboxRichEntitySuggestionsDescription[] =
@@ -3176,6 +3213,12 @@ extern const char kEnableChromeOsAccountManagerName[] =
 extern const char kEnableChromeOsAccountManagerDescription[] =
     "Enables the Chrome OS Account Manager";
 
+extern const char kEnableContinueReadingName[] = "Enable continue reading";
+extern const char kEnableContinueReadingDescription[] =
+    "Enable continue reading feature in Launcher, which allows users to "
+    "seamlessly continue reading a web page when they switch devices from "
+    "phones or tablets to Chromebooks.";
+
 const char kEnableDragAppsInTabletModeName[] =
     "Enable dragging apps in tablet mode";
 const char kEnableDragAppsInTabletModeDescription[] =
@@ -3217,6 +3260,11 @@ const char kEnableHomeLauncherName[] = "Enable home launcher";
 const char kEnableHomeLauncherDescription[] =
     "Enable home launcher in tablet mode.";
 
+extern const char kEnableHomeLauncherGesturesName[] =
+    "Enable home launcher gestures";
+extern const char kEnableHomeLauncherGesturesDescription[] =
+    "Enables using gestures to hide or show the home launcher.";
+
 const char kEnableImeMenuName[] = "Enable opt-in IME menu";
 const char kEnableImeMenuDescription[] =
     "Enable access to the new IME menu in the Language Settings page.";
@@ -3229,6 +3277,12 @@ const char kEnableNewStyleLauncherDescription[] =
 const char kEnableNewWallpaperPickerName[] = "Enable new wallpaper picker";
 const char kEnableNewWallpaperPickerDescription[] =
     "Enable the redesigned wallpaper picker with new wallpaper collections.";
+
+const char kEnableOobeRecommendAppsScreenName[] =
+    "Enable OOBE Recommend Apps Screen";
+const char kEnableOobeRecommendAppsScreenDescription[] =
+    "Enable the Recommend Apps Screen in OOBE which allows user to install apps"
+    "from other devices";
 
 const char kEnablePerUserTimezoneName[] = "Per-user time zone preferences.";
 const char kEnablePerUserTimezoneDescription[] =
@@ -3265,6 +3319,12 @@ const char kEnableVirtualKeyboardMdUiDescription[] =
 const char kEnableVirtualKeyboardUkmName[] = "Enable UKM for virtual keyboard";
 const char kEnableVirtualKeyboardUkmDescription[] =
     "Enables UKM for virtual keyboard";
+
+extern const char kEnableZeroStateSuggestionsName[] =
+    "Enable Zero State Suggetions";
+extern const char kEnableZeroStateSuggestionsDescription[] =
+    "Enable Zero State Suggestions feature in Launcher, which will show "
+    "suggetions when launcher search box is active with an empty query";
 
 const char kEnableZipArchiverPackerName[] = "ZIP archiver - Packer";
 const char kEnableZipArchiverPackerDescription[] =
@@ -3511,24 +3571,6 @@ const char kWakeOnPacketsDescription[] =
 const char kZipArchiverUnpackerName[] = "ZIP archiver - Unpacker";
 const char kZipArchiverUnpackerDescription[] =
     "Enable or disable the ability to unpack archives in incognito mode";
-
-extern const char kEnableContinueReadingName[] = "Enable continue reading";
-extern const char kEnableContinueReadingDescription[] =
-    "Enable continue reading feature in Launcher, which allows users to "
-    "seamlessly continue reading a web page when they switch devices from "
-    "phones or tablets to Chromebooks.";
-
-extern const char kEnableZeroStateSuggestionsName[] =
-    "Enable Zero State Suggetions";
-extern const char kEnableZeroStateSuggestionsDescription[] =
-    "Enable Zero State Suggestions feature in Launcher, which will show "
-    "suggetions when launcher search box is active with an empty query";
-
-const char kEnableOobeRecommendAppsScreenName[] =
-    "Enable OOBE Recommend Apps Screen";
-const char kEnableOobeRecommendAppsScreenDescription[] =
-    "Enable the Recommend Apps Screen in OOBE which allows user to install apps"
-    "from other devices";
 
 #endif  // defined(OS_CHROMEOS)
 

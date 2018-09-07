@@ -299,38 +299,14 @@ class NetworkContext::ContextNetworkDelegate
     LOG(ERROR) << "Cancelling request to " << target_url
                << " with invalid referrer " << referrer_url;
     // Record information to help debug issues like http://crbug.com/422871.
-    if (target_url.SchemeIsHTTPOrHTTPS())
+    if (target_url.SchemeIsHTTPOrHTTPS()) {
+      auto referrer_policy = request.referrer_policy();
+      base::debug::Alias(&referrer_policy);
+      DEBUG_ALIAS_FOR_GURL(target_buf, target_url);
+      DEBUG_ALIAS_FOR_GURL(referrer_buf, referrer_url);
       base::debug::DumpWithoutCrashing();
+    }
     return true;
-  }
-
-  bool OnCanGetCookiesInternal(const net::URLRequest& request,
-                               const net::CookieList& cookie_list,
-                               bool allowed_from_caller) override {
-    return allowed_from_caller &&
-           network_context_->cookie_manager()
-               ->cookie_settings()
-               .IsCookieAccessAllowed(request.url(),
-                                      request.site_for_cookies());
-  }
-
-  bool OnCanSetCookieInternal(const net::URLRequest& request,
-                              const net::CanonicalCookie& cookie,
-                              net::CookieOptions* options,
-                              bool allowed_from_caller) override {
-    return allowed_from_caller &&
-           network_context_->cookie_manager()
-               ->cookie_settings()
-               .IsCookieAccessAllowed(request.url(),
-                                      request.site_for_cookies());
-  }
-
-  bool OnCanEnablePrivacyModeInternal(
-      const GURL& url,
-      const GURL& site_for_cookies) const override {
-    return !network_context_->cookie_manager()
-                ->cookie_settings()
-                .IsCookieAccessAllowed(url, site_for_cookies);
   }
 
   void set_enable_referrers(bool enable_referrers) {
@@ -881,6 +857,19 @@ void NetworkContext::WriteCacheMetadata(const GURL& url,
   memcpy(buf->data(), data.data(), data.size());
   cache->WriteMetadata(url, priority, expected_response_time, buf.get(),
                        data.size());
+}
+
+void NetworkContext::IsHSTSActiveForHost(const std::string& host,
+                                         IsHSTSActiveForHostCallback callback) {
+  net::TransportSecurityState* security_state =
+      url_request_context_->transport_security_state();
+
+  if (!security_state) {
+    std::move(callback).Run(false);
+    return;
+  }
+
+  std::move(callback).Run(security_state->ShouldUpgradeToSSL(host));
 }
 
 void NetworkContext::AddHSTSForTesting(const std::string& host,

@@ -44,6 +44,7 @@
 #include "device/bluetooth/test/fake_bluetooth_le_device_winrt.h"
 #include "device/bluetooth/test/fake_bluetooth_le_manufacturer_data_winrt.h"
 #include "device/bluetooth/test/fake_device_information_winrt.h"
+#include "device/bluetooth/test/fake_device_watcher_winrt.h"
 #include "device/bluetooth/test/fake_gatt_characteristic_winrt.h"
 #include "device/bluetooth/test/fake_gatt_descriptor_winrt.h"
 #include "device/bluetooth/test/fake_radio_winrt.h"
@@ -710,6 +711,47 @@ void BluetoothTestWinrt::InitFakeAdapterWithoutRadio() {
       Make<FakeDeviceInformationWinrt>(kTestAdapterName),
       run_loop.QuitClosure(), this);
   run_loop.Run();
+}
+
+void BluetoothTestWinrt::SimulateAdapterPowerFailure() {
+  static_cast<FakeRadioWinrt*>(
+      static_cast<TestBluetoothAdapterWinrt*>(adapter_.get())
+          ->GetRadioForTesting())
+      ->SimulateAdapterPowerFailure();
+}
+
+void BluetoothTestWinrt::SimulateAdapterPoweredOn() {
+  auto* radio = static_cast<FakeRadioWinrt*>(
+      static_cast<TestBluetoothAdapterWinrt*>(adapter_.get())
+          ->GetRadioForTesting());
+
+  if (radio) {
+    radio->SimulateAdapterPoweredOn();
+    return;
+  }
+
+  // This can happen when we simulate a fake adapter without a radio.
+  static_cast<FakeDeviceWatcherWinrt*>(
+      static_cast<TestBluetoothAdapterWinrt*>(adapter_.get())
+          ->GetPoweredRadioWatcherForTesting())
+      ->SimulateAdapterPoweredOn();
+}
+
+void BluetoothTestWinrt::SimulateAdapterPoweredOff() {
+  auto* radio = static_cast<FakeRadioWinrt*>(
+      static_cast<TestBluetoothAdapterWinrt*>(adapter_.get())
+          ->GetRadioForTesting());
+
+  if (radio) {
+    radio->SimulateAdapterPoweredOff();
+    return;
+  }
+
+  // This can happen when we simulate a fake adapter without a radio.
+  static_cast<FakeDeviceWatcherWinrt*>(
+      static_cast<TestBluetoothAdapterWinrt*>(adapter_.get())
+          ->GetPoweredRadioWatcherForTesting())
+      ->SimulateAdapterPoweredOff();
 }
 
 BluetoothDevice* BluetoothTestWinrt::SimulateLowEnergyDevice(

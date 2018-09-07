@@ -387,6 +387,12 @@ const base::Feature kSendBeaconThrowForBlobWithNonSimpleType{
 const base::Feature kSecMetadata{"SecMetadata",
                                  base::FEATURE_DISABLED_BY_DEFAULT};
 
+// Enables long running message dispatch for service workers.
+// This is a temporary addition only to be used for the Android Messages
+// integration with ChromeOS (http://crbug.com/823256).
+const base::Feature kServiceWorkerLongRunningMessage{
+    "ServiceWorkerLongRunningMessage", base::FEATURE_ENABLED_BY_DEFAULT};
+
 // Service worker based payment apps as defined by w3c here:
 // https://w3c.github.io/webpayments-payment-apps-api/
 const base::Feature kServiceWorkerPaymentApps{"ServiceWorkerPaymentApps",
@@ -536,21 +542,6 @@ const base::Feature kExperimentalProductivityFeatures{
 // The JavaScript API for payments on the web.
 const base::Feature kWebPayments{"WebPayments",
                                  base::FEATURE_ENABLED_BY_DEFAULT};
-
-// Informs the WebRTC Acoustic Echo Canceler (AEC) that echo path loss is
-// bounded.
-const base::Feature kWebRtcAecBoundedErlSetup{
-    "WebRtcAecBoundedErlSetup", base::FEATURE_DISABLED_BY_DEFAULT};
-
-// Informs the WebRTC Acoustic Echo Canceler (AEC) that the playout and
-// capture is done using different clocks.
-const base::Feature kWebRtcAecClockDriftSetup{
-    "WebRtcAecClockDriftSetup", base::FEATURE_DISABLED_BY_DEFAULT};
-
-// Informs the WebRTC Acoustic Echo Canceler (AEC) that the feature providing
-// echo canceller transparency to render noise should be used.
-const base::Feature kWebRtcAecNoiseTransparency{
-    "WebRtcAecNoiseTransparency", base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Makes WebRTC use ECDSA certs by default (i.e., when no cert type was
 // specified in JS).

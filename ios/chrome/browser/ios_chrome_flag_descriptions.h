@@ -40,6 +40,11 @@ extern const char kSyncSandboxDescription[];
 extern const char kSyncStandaloneTransportName[];
 extern const char kSyncStandaloneTransportDescription[];
 
+// Title and description for the flag to control if Chrome Sync (in standalone
+// transport mode) supports non-primary accounts.
+extern const char kSyncSupportSecondaryAccountName[];
+extern const char kSyncSupportSecondaryAccountDescription[];
+
 // Title and description for the flag to control if Google Payments API calls
 // should use the sandbox servers.
 extern const char kWalletServiceUseSandboxName[];
@@ -160,6 +165,11 @@ extern const char kNewPasswordFormParsingDescription[];
 // and ref in omnibox URL suggestions.
 extern const char kOmniboxUIElideSuggestionUrlAfterHostName[];
 extern const char kOmniboxUIElideSuggestionUrlAfterHostDescription[];
+
+// Title and description for the flag to control the out of web implementation
+// of fullscreen.
+extern const char kOutOfWebFullscreenName[];
+extern const char kOutOfWebFullscreenDescription[];
 
 // Title and description for the flag to enable the ability to export passwords
 // from the password settings.

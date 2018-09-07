@@ -747,7 +747,8 @@ bool XMLHttpRequest::InitSend(ExceptionState& exception_state) {
   if (!async_) {
     if (GetExecutionContext()->IsDocument() &&
         !GetDocument()->GetFrame()->IsFeatureEnabled(
-            mojom::FeaturePolicyFeature::kSyncXHR)) {
+            mojom::FeaturePolicyFeature::kSyncXHR,
+            ReportOptions::kReportOnFailure)) {
       LogConsoleError(GetExecutionContext(),
                       "Synchronous requests are disabled by Feature Policy.");
       HandleNetworkError();
@@ -827,12 +828,10 @@ void XMLHttpRequest::send(Document* document, ExceptionState& exception_state) {
   scoped_refptr<EncodedFormData> http_body;
 
   if (AreMethodAndURLValidForSend()) {
-    // FIXME: Per https://xhr.spec.whatwg.org/#dom-xmlhttprequest-send the
-    // Content-Type header and whether to serialize as HTML or XML should
-    // depend on |document->isHTMLDocument()|.
-    if (!HasContentTypeRequestHeader())
-      SetRequestHeaderInternal(HTTPNames::Content_Type,
-                               "application/xml;charset=UTF-8");
+    if (document->IsHTMLDocument())
+      UpdateContentTypeAndCharset("text/html;charset=UTF-8", "UTF-8");
+    else if (document->IsXMLDocument())
+      UpdateContentTypeAndCharset("application/xml;charset=UTF-8", "UTF-8");
 
     String body = CreateMarkup(document);
 
@@ -1542,7 +1541,7 @@ void XMLHttpRequest::UpdateContentTypeAndCharset(
   // http://xhr.spec.whatwg.org/#the-send()-method step 4's concilliation of
   // "charset=" in any author-provided Content-Type: request header.
   String content_type = request_headers_.Get(HTTPNames::Content_Type);
-  if (content_type.IsEmpty()) {
+  if (content_type.IsNull()) {
     SetRequestHeaderInternal(HTTPNames::Content_Type, default_content_type);
     return;
   }

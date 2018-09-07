@@ -36,6 +36,12 @@ const char kSyncShortInitialRetryOverride[] =
 // that it's what you want.
 const char kSyncShortNudgeDelayForTest[] = "sync-short-nudge-delay-for-test";
 
+// Allows custom passphrase users to receive Wallet data for secondary accounts
+// while in transport-only mode.
+const base::Feature kSyncAllowWalletDataInTransportModeWithCustomPassphrase{
+    "SyncAllowAutofillWalletDataInTransportModeWithCustomPassphrase",
+    base::FEATURE_ENABLED_BY_DEFAULT};
+
 // Enables clearing of sync data when a user enables passphrase encryption.
 const base::Feature kSyncClearDataOnPassphraseEncryption{
     "ClearSyncDataOnPassphraseEncryption", base::FEATURE_DISABLED_BY_DEFAULT};
@@ -44,6 +50,12 @@ const base::Feature kSyncClearDataOnPassphraseEncryption{
 // independently of Sync-the-feature.
 const base::Feature kSyncStandaloneTransport{"SyncStandaloneTransport",
                                              base::FEATURE_DISABLED_BY_DEFAULT};
+
+// If enabled, allows the Sync machinery to start with a signed-in account that
+// has *not* been chosen as Chrome's primary account (see IdentityManager). Only
+// has an effect if SyncStandaloneTransport is also enabled.
+const base::Feature kSyncSupportSecondaryAccount{
+    "SyncSupportSecondaryAccount", base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Gates registration and construction of user events machinery. Enabled by
 // default as each use case should have their own gating feature as well.

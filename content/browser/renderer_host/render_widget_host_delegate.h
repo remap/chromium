@@ -23,6 +23,7 @@
 #include "ui/gfx/range/range.h"
 
 namespace blink {
+class WebMouseEvent;
 class WebMouseWheelEvent;
 class WebGestureEvent;
 }
@@ -89,6 +90,13 @@ class CONTENT_EXPORT RenderWidgetHostDelegate {
   virtual KeyboardEventProcessingResult PreHandleKeyboardEvent(
       const NativeWebKeyboardEvent& event);
 
+  // Callback to give the browser a chance to handle the specified mouse
+  // event before sending it to the renderer.
+  // Returns true if the |event| was handled.
+  // TODO(carlosil, nasko): remove once committed interstitial pages are
+  // fully implemented.
+  virtual bool PreHandleMouseEvent(const blink::WebMouseEvent& event);
+
   // Callback to inform the browser that the renderer did not process the
   // specified events. This gives an opportunity to the browser to process the
   // event (used for keyboard shortcuts).
@@ -103,6 +111,9 @@ class CONTENT_EXPORT RenderWidgetHostDelegate {
   // widget.
   virtual void DidReceiveInputEvent(RenderWidgetHostImpl* render_widget_host,
                                     const blink::WebInputEvent::Type type) {}
+
+  // Asks whether the page is in a state of ignoring input events.
+  virtual bool ShouldIgnoreInputEvents();
 
   // Callback to give the browser a chance to handle the specified gesture
   // event before sending it to the renderer.

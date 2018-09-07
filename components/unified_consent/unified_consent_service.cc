@@ -8,7 +8,9 @@
 #include "base/metrics/histogram_macros.h"
 #include "base/scoped_observer.h"
 #include "base/threading/sequenced_task_runner_handle.h"
+#include "build/build_config.h"
 #include "components/autofill/core/common/autofill_prefs.h"
+#include "components/contextual_search/core/browser/contextual_search_preference.h"
 #include "components/pref_registry/pref_registry_syncable.h"
 #include "components/prefs/pref_change_registrar.h"
 #include "components/prefs/pref_service.h"
@@ -171,6 +173,8 @@ void UnifiedConsentService::RegisterPrefs(
       prefs::kUnifiedConsentMigrationState,
       static_cast<int>(MigrationState::kNotInitialized));
   registry->RegisterBooleanPref(prefs::kShouldShowUnifiedConsentBump, false);
+  registry->RegisterBooleanPref(prefs::kHadEverythingSyncedBeforeMigration,
+                                false);
 }
 
 // static
@@ -184,9 +188,12 @@ void UnifiedConsentService::RollbackIfNeeded(
     // If there was no migration yet, nothing has to be rolled back.
     return;
   }
+  bool had_everything_synced =
+      user_pref_service->GetBoolean(
+          prefs::kHadEverythingSyncedBeforeMigration) ||
+      user_pref_service->GetBoolean(prefs::kShouldShowUnifiedConsentBump);
 
-  if (user_pref_service->GetBoolean(prefs::kShouldShowUnifiedConsentBump) &&
-      sync_service &&
+  if (had_everything_synced && sync_service &&
       sync_service->GetDisableReasons() ==
           syncer::SyncService::DISABLE_REASON_NONE) {
     // This will wait until the sync engine is initialized and then enables the
@@ -199,6 +206,7 @@ void UnifiedConsentService::RollbackIfNeeded(
   user_pref_service->ClearPref(prefs::kUnifiedConsentGiven);
   user_pref_service->ClearPref(prefs::kUnifiedConsentMigrationState);
   user_pref_service->ClearPref(prefs::kShouldShowUnifiedConsentBump);
+  user_pref_service->ClearPref(prefs::kHadEverythingSyncedBeforeMigration);
 }
 
 void UnifiedConsentService::SetUnifiedConsentGiven(bool unified_consent_given) {
@@ -272,6 +280,8 @@ void UnifiedConsentService::OnPrimaryAccountCleared(
   service_client_->SetServiceEnabled(Service::kSafeBrowsingExtendedReporting,
                                      false);
   service_client_->SetServiceEnabled(Service::kSpellCheck, false);
+  contextual_search::ContextualSearchPreference::GetInstance()->SetPref(
+      pref_service_, false);
 
   if (GetMigrationState() != MigrationState::kCompleted) {
     // When the user signs out, the migration is complete.
@@ -338,6 +348,8 @@ void UnifiedConsentService::OnUnifiedConsentGivenPrefChanged() {
   // Enable all non-personalized services.
   pref_service_->SetBoolean(prefs::kUrlKeyedAnonymizedDataCollectionEnabled,
                             true);
+  contextual_search::ContextualSearchPreference::GetInstance()
+      ->OnUnifiedConsentGiven(pref_service_);
   // Inform client to enable non-personalized services.
   for (int i = 0; i <= static_cast<int>(Service::kLast); ++i) {
     Service service = static_cast<Service>(i);
@@ -390,8 +402,12 @@ void UnifiedConsentService::MigrateProfileToUnifiedConsent() {
     SetMigrationState(MigrationState::kCompleted);
     return;
   }
+  bool is_syncing_everything =
+      syncer::SyncPrefs(pref_service_).HasKeepEverythingSynced();
+  pref_service_->SetBoolean(prefs::kHadEverythingSyncedBeforeMigration,
+                            is_syncing_everything);
 
-  if (!syncer::SyncPrefs(pref_service_).HasKeepEverythingSynced()) {
+  if (!is_syncing_everything) {
     RecordConsentBumpSuppressReason(
         ConsentBumpSuppressReason::kSyncEverythingOff);
   } else if (!AreAllOnByDefaultPrivacySettingsOn()) {

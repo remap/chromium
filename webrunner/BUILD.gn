@@ -81,6 +81,7 @@ component("service_lib") {
     "//ui/display",
     "//ui/ozone",
     "//ui/platform_window",
+    "//ui/wm",
   ]
 
   data_deps = [
@@ -222,6 +223,13 @@ fidl_library("fidl") {
   ]
 }
 
+# gn binary location.
+if (host_os == "mac") {
+  _gn_path = "//buildtools/mac/gn"
+} else if (host_os == "linux") {
+  _gn_path = "//buildtools/linux64/gn"
+}
+
 # Build location where all Fuchsia archive source files are placed.
 _artifact_root = "$root_out_dir/fuchsia_artifacts"
 
@@ -230,7 +238,7 @@ _license_path = "$_artifact_root/LICENSE"
 action("license") {
   script = "//tools/licenses.py"
   inputs = [
-    "//buildtools/linux64/gn",
+    "$_gn_path",
   ]
   outputs = [
     _license_path,

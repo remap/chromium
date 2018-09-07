@@ -236,6 +236,7 @@ public class ContextualSearchManagerTest {
 
     @After
     public void tearDown() throws Exception {
+        clearUnifiedConsentMetadata();
         mTestServer.stopAndDestroyServer();
         ThreadUtils.runOnUiThreadBlocking(new Runnable() {
             @Override
@@ -271,6 +272,12 @@ public class ContextualSearchManagerTest {
         });
         // Make sure the page is fully loaded.
         ChromeTabUtils.waitForTabPageLoaded(tab, testUrl);
+    }
+
+    /** Clears stored metadata about preference state before Unified Consent became active. */
+    private void clearUnifiedConsentMetadata() {
+        mPolicy.applyUnifiedConsentGivenMetadata(
+                ContextualSearchPreviousPreferenceMetadata.UNKNOWN);
     }
 
     //============================================================================================
@@ -887,7 +894,12 @@ public class ContextualSearchManagerTest {
         // longpress, in turn showing the pins and preventing contextual tap
         // refinement from nearby taps. The double-tap timeout is sufficiently
         // short that this shouldn't conflict with tap refinement by the user.
-        Thread.sleep(ViewConfiguration.getDoubleTapTimeout());
+        int doubleTapTimeout = ViewConfiguration.getDoubleTapTimeout();
+        if (Build.VERSION.SDK_INT == Build.VERSION_CODES.KITKAT) {
+            // Some tests are flaky on KitKat.  See https://crbug.com/878517.
+            doubleTapTimeout *= 2;
+        }
+        Thread.sleep(doubleTapTimeout);
     }
 
     /**
@@ -1829,6 +1841,78 @@ public class ContextualSearchManagerTest {
     }
 
     // --------------------------------------------------------------------------------------------
+    // Unified Consent throttling tests.
+    // --------------------------------------------------------------------------------------------
+
+    /**
+     * Sets up state to simulate Unified Consent switched on for this user.
+     * @param wasPreviouslyUndecided Whether the user was "undecided" before Unified Consent.
+     */
+    void setupUnifiedConsentState(boolean wasPreviouslyUndecided)
+            throws InterruptedException, TimeoutException {
+        mFakeServer.reset();
+        // User is now decided, either due to Unified Consent enabling or because they already were.
+        mPolicy.overrideDecidedStateForTesting(true);
+        @ContextualSearchPreviousPreferenceMetadata
+        int previousMetadata =
+                wasPreviouslyUndecided ? ContextualSearchPreviousPreferenceMetadata.WAS_UNDECIDED
+                                       : ContextualSearchPreviousPreferenceMetadata.WAS_DECIDED;
+        mPolicy.applyUnifiedConsentGivenMetadata(previousMetadata);
+        // Throttling is done by not resolving HTTPS requests.
+        mFakeServer.setShouldUseHttps(true);
+        // Tap on a word.  We may or may not request the search term.
+        clickWordNode("states");
+    }
+
+    @Test
+    @SmallTest
+    @Feature({"ContextualSearch"})
+    // Throttling is OFF (see the very end of this field-trial settings set):
+    @CommandLineFlags.Add({"enable-features=ContextualSearchUnityIntegration<FakeStudyName",
+            "force-fieldtrials=FakeStudyName/FakeGroup",
+            "force-fieldtrial-params=FakeStudyName.FakeGroup:throttle/false"})
+    public void
+    testPreviouslyUndecidedsResolveAfterUnifiedConsent()
+            throws InterruptedException, TimeoutException {
+        boolean previouslyUndecided = true;
+        setupUnifiedConsentState(previouslyUndecided);
+
+        assertSearchTermRequested();
+    }
+
+    @Test
+    @SmallTest
+    @Feature({"ContextualSearch"})
+    // Throttling is ON (see the very end of this field-trial settings set):
+    @CommandLineFlags.Add({"enable-features=ContextualSearchUnityIntegration<FakeStudyName",
+            "force-fieldtrials=FakeStudyName/FakeGroup",
+            "force-fieldtrial-params=FakeStudyName.FakeGroup:throttle/true"})
+    public void
+    testPreviouslyUndecidedsCanThrottleAfterUnifiedConsent()
+            throws InterruptedException, TimeoutException {
+        boolean previouslyUndecided = true;
+        setupUnifiedConsentState(previouslyUndecided);
+
+        assertSearchTermNotRequested();
+    }
+
+    @Test
+    @SmallTest
+    @Feature({"ContextualSearch"})
+    // Throttling is ON (see the very end of this field-trial settings set):
+    @CommandLineFlags.Add({"enable-features=ContextualSearchUnityIntegration<FakeStudyName",
+            "force-fieldtrials=FakeStudyName/FakeGroup",
+            "force-fieldtrial-params=FakeStudyName.FakeGroup:throttle/true"})
+    public void
+    testPreviouslyDecidedsCannotThrottleAfterUnifiedConsent()
+            throws InterruptedException, TimeoutException {
+        boolean previouslyUndecided = false;
+        setupUnifiedConsentState(previouslyUndecided);
+
+        assertSearchTermRequested();
+    }
+
+    // --------------------------------------------------------------------------------------------
     // App Menu Suppression
     // --------------------------------------------------------------------------------------------
 
@@ -2437,7 +2521,7 @@ public class ContextualSearchManagerTest {
 
         waitToPreventDoubleTapRecognition();
 
-        // Simulate a new tap and make sure a new Content is created.
+        // Simulate a new tap and make sure new Content is created.
         simulateTapSearch("term");
         assertWebContentsCreatedButNeverMadeVisible();
         Assert.assertEquals(2, mFakeServer.getLoadedUrlCount());
@@ -2446,7 +2530,7 @@ public class ContextualSearchManagerTest {
 
         waitToPreventDoubleTapRecognition();
 
-        // Simulate a new tap and make sure a new Content is created.
+        // Simulate a new tap and make sure new Content is created.
         simulateTapSearch("resolution");
         assertWebContentsCreatedButNeverMadeVisible();
         Assert.assertEquals(3, mFakeServer.getLoadedUrlCount());
@@ -3117,6 +3201,9 @@ public class ContextualSearchManagerTest {
         assertPanelClosedOrUndefined();
         Assert.assertEquals(1, observer.getShowRedactedCount());
         Assert.assertEquals(1, observer.getShowCount());
+        // Note that this test is flawed because it doesn't wait until the selection is cleared
+        // and verify that a Hide notification is sent.  This is a bug because no hide is ever
+        // sent in this case, but should be.  Details in https://crbug.com/878006.
         Assert.assertEquals(0, observer.getHideCount());
         mManager.removeObserver(observer);
     }

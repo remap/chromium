@@ -96,6 +96,19 @@ void AssistantInteractionController::OnDeepLinkReceived(
   StartTextInteraction(query.value());
 }
 
+void AssistantInteractionController::OnUiModeChanged(AssistantUiMode ui_mode) {
+  if (ui_mode == AssistantUiMode::kMiniUi)
+    return;
+
+  // When the Assistant is not in mini state there should not be an active
+  // metalayer session. If we were in mini state when the UI mode was changed,
+  // we need to clean up the metalayer session and reset default input modality.
+  if (assistant_interaction_model_.input_modality() == InputModality::kStylus) {
+    Shell::Get()->highlighter_controller()->AbortSession();
+    assistant_interaction_model_.SetInputModality(InputModality::kKeyboard);
+  }
+}
+
 void AssistantInteractionController::OnUiVisibilityChanged(
     AssistantVisibility new_visibility,
     AssistantVisibility old_visibility,
@@ -119,10 +132,11 @@ void AssistantInteractionController::OnUiVisibilityChanged(
       assistant_interaction_model_.SetInputModality(InputModality::kKeyboard);
       break;
     case AssistantVisibility::kVisible:
-      // TODO(dmblack): When the UI becomes visible, we may need to immediately
-      // start a voice interaction depending on |source| and user preference.
-      if (source == AssistantSource::kStylus)
+      if (source == AssistantSource::kLongPressLauncher) {
+        StartVoiceInteraction();
+      } else if (source == AssistantSource::kStylus) {
         assistant_interaction_model_.SetInputModality(InputModality::kStylus);
+      }
       break;
   }
 }
@@ -230,6 +244,24 @@ void AssistantInteractionController::OnInteractionFinished(
     assistant_interaction_model_.ClearPendingQuery();
     assistant_interaction_model_.ClearPendingResponse();
     return;
+  }
+
+  // In normal interaction flows the pending query has already been committed.
+  // In some irregular cases, however, it has not. This happens during multi-
+  // device hotword loss, for example, but can also occur if the interaction
+  // errors out. In these cases we still need to commit the pending query as
+  // this is a prerequisite step to being able to finalize the pending response.
+  if (assistant_interaction_model_.pending_query().type() !=
+      AssistantQueryType::kNull) {
+    assistant_interaction_model_.CommitPendingQuery();
+  }
+
+  // If the interaction was finished due to multi-device hotword loss, we want
+  // to show an appropriate message to the user.
+  if (resolution == AssistantInteractionResolution::kMultiDeviceHotwordLoss) {
+    assistant_interaction_model_.pending_response()->AddUiElement(
+        std::make_unique<AssistantTextElement>(l10n_util::GetStringUTF8(
+            IDS_ASH_ASSISTANT_MULTI_DEVICE_HOTWORD_LOSS)));
   }
 
   // The interaction has finished, so we finalize the pending response if it

@@ -17,6 +17,12 @@
 #include "ui/views/widget/widget.h"
 #include "ui/views/window/dialog_observer.h"
 
+namespace views_bridge_mac {
+namespace mojom {
+class BridgedNativeWidget;
+}  // namespace mojom
+}  // namespace views_bridge_mac
+
 namespace ui {
 class RecyclableCompositorMac;
 }  // namespace ui
@@ -24,7 +30,6 @@ class RecyclableCompositorMac;
 namespace views {
 
 class BridgedNativeWidget;
-class BridgedNativeWidgetPublic;
 class NativeWidgetMac;
 
 // The portion of NativeWidgetMac that lives in the browser process. This
@@ -47,7 +52,7 @@ class VIEWS_EXPORT BridgedNativeWidgetHostImpl
   // TODO(ccameron): Remove all accesses to this member, and replace them
   // with methods that may be sent across processes.
   BridgedNativeWidget* bridge_impl() const { return bridge_impl_.get(); }
-  BridgedNativeWidgetPublic* bridge() const;
+  views_bridge_mac::mojom::BridgedNativeWidget* bridge() const;
 
   void InitWindow(const Widget::InitParams& params);
 
@@ -116,6 +121,7 @@ class VIEWS_EXPORT BridgedNativeWidgetHostImpl
   void DestroyCompositor();
 
   // views::BridgedNativeWidgetHost:
+  NSView* GetNativeViewAccessible() override;
   void OnVisibilityChanged(bool visible) override;
   void SetViewSize(const gfx::Size& new_size) override;
   void SetKeyboardAccessible(bool enabled) override;
@@ -124,6 +130,12 @@ class VIEWS_EXPORT BridgedNativeWidgetHostImpl
   void OnScrollEvent(const ui::ScrollEvent& const_event) override;
   void OnMouseEvent(const ui::MouseEvent& const_event) override;
   void OnGestureEvent(const ui::GestureEvent& const_event) override;
+  void DispatchKeyEvent(const ui::KeyEvent& const_event,
+                        bool* event_handled) override;
+  void DispatchKeyEventToMenuController(const ui::KeyEvent& const_event,
+                                        bool* event_swallowed,
+                                        bool* event_handled) override;
+  void GetHasMenuController(bool* has_menu_controller) override;
   void GetIsDraggableBackgroundAt(const gfx::Point& location_in_content,
                                   bool* is_draggable_background) override;
   void GetTooltipTextAt(const gfx::Point& location_in_content,
@@ -133,6 +145,7 @@ class VIEWS_EXPORT BridgedNativeWidgetHostImpl
                  gfx::DecoratedText* decorated_word,
                  gfx::Point* baseline_point) override;
   void GetWidgetIsModal(bool* widget_is_modal) override;
+  void GetIsFocusedViewTextual(bool* is_textual) override;
   void OnWindowGeometryChanged(
       const gfx::Rect& window_bounds_in_screen_dips,
       const gfx::Rect& content_bounds_in_screen_dips) override;
@@ -146,6 +159,13 @@ class VIEWS_EXPORT BridgedNativeWidgetHostImpl
   void OnWindowKeyStatusChanged(bool is_key,
                                 bool is_content_first_responder,
                                 bool full_keyboard_access_enabled) override;
+  void DoDialogButtonAction(ui::DialogButton button) override;
+  void GetDialogButtonInfo(ui::DialogButton type,
+                           bool* button_exists,
+                           base::string16* button_label,
+                           bool* is_button_enabled,
+                           bool* is_button_default) override;
+  void GetDoDialogButtonsExist(bool* buttons_exist) override;
 
   // DialogObserver:
   void OnDialogModelChanged() override;

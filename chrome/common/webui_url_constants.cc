@@ -65,6 +65,7 @@ const char kChromeUIExtensionIconURL[] = "chrome://extension-icon/";
 const char kChromeUIExtensionsFrameHost[] = "extensions-frame";
 const char kChromeUIExtensionsFrameURL[] = "chrome://extensions-frame/";
 const char kChromeUIExtensionsHost[] = "extensions";
+const char kChromeUIExtensionsInternalsHost[] = "extensions-internals";
 const char kChromeUIExtensionsURL[] = "chrome://extensions/";
 const char kChromeUIFaviconHost[] = "favicon";
 const char kChromeUIFaviconURL[] = "chrome://favicon/";
@@ -205,6 +206,8 @@ const char kChromeUIInternetConfigDialogHost[] = "internet-config-dialog";
 const char kChromeUIInternetDetailDialogHost[] = "internet-detail-dialog";
 const char kChromeUIKeyboardOverlayHost[] = "keyboardoverlay";
 const char kChromeUIKeyboardOverlayURL[] = "chrome://keyboardoverlay/";
+const char kChromeUILinuxCreditsHost[] = "linux-credits";
+const char kChromeUILinuxCreditsURL[] = "chrome://linux-credits/";
 const char kChromeUIMobileSetupHost[] = "mobilesetup";
 const char kChromeUIMobileSetupURL[] = "chrome://mobilesetup/";
 const char kChromeUIMultiDeviceSetupHost[] = "multidevice-setup";
@@ -291,6 +294,8 @@ const char kDateTimeSubPage[] = "dateTime";
 const char kDisplaySubPage[] = "display";
 const char kHelpSubPage[] = "help";
 const char kInternetSubPage[] = "internet";
+// 'multidevice/features' is a child of the 'multidevice' route
+const char kConnectedDevicesSubPage[] = "multidevice/features";
 const char kNetworkDetailSubPage[] = "networkDetail";
 const char kPowerSubPage[] = "power";
 const char kSmbSharesPage[] = "smbShares";
@@ -393,6 +398,7 @@ const char* const kChromeHostURLs[] = {
     kChromeUIDriveInternalsHost,
     kChromeUIFirstRunHost,
     kChromeUIKeyboardOverlayHost,
+    kChromeUILinuxCreditsHost,
     kChromeUINetworkHost,
     kChromeUIOobeHost,
     kChromeUIOSCreditsHost,

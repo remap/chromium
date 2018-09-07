@@ -13,9 +13,10 @@
 #include "base/macros.h"
 #include "base/metrics/field_trial_params.h"
 #include "chrome/common/chrome_features.h"
-#include "components/autofill/core/browser/autofill_experiments.h"
+#include "components/autofill/core/common/autofill_features.h"
 #include "components/data_reduction_proxy/core/common/data_reduction_proxy_features.h"
 #include "components/feed/feed_feature_list.h"
+#include "components/language/core/common/language_experiments.h"
 #include "components/ntp_snippets/contextual/contextual_suggestions_features.h"
 #include "components/ntp_snippets/features.h"
 #include "components/ntp_tiles/constants.h"
@@ -46,8 +47,8 @@ namespace {
 // this array may either refer to features defined in the header of this file or
 // in other locations in the code base (e.g. chrome/, components/, etc).
 const base::Feature* kFeaturesExposedToJava[] = {
-    &autofill::kAutofillExpandedPopupViews,
-    &autofill::kAutofillScanCardholderName,
+    &autofill::features::kAutofillExpandedPopupViews,
+    &autofill::features::kAutofillScanCardholderName,
     &contextual_suggestions::kContextualSuggestionsAlternateCardLayout,
     &contextual_suggestions::kContextualSuggestionsBottomSheet,
     &contextual_suggestions::kContextualSuggestionsButton,
@@ -107,6 +108,7 @@ const base::Feature* kFeaturesExposedToJava[] = {
     &kExploreSites,
     &kFullscreenActivity,
     &kHandleMediaIntents,
+    &kHideUserDataFromIncognitoNotifications,
     &kHomePageButtonForceEnabled,
     &kHomepageTile,
     &kHorizontalTabSwitcherAndroid,
@@ -146,6 +148,7 @@ const base::Feature* kFeaturesExposedToJava[] = {
     &payments::features::kWebPaymentsMethodSectionOrderV2,
     &payments::features::kWebPaymentsModifiers,
     &payments::features::kWebPaymentsSingleAppUiSkip,
+    &language::kExplicitLanguageAsk,
     &media::kCafMediaRouterImpl,
     &ntp_snippets::kArticleSuggestionsExpandableHeader,
     &ntp_snippets::kArticleSuggestionsFeature,
@@ -236,7 +239,7 @@ const base::Feature kChromeMemexFeature{"ChromeMemex",
                                         base::FEATURE_DISABLED_BY_DEFAULT};
 
 const base::Feature kChromeModernAlternateCardLayout{
-    "ChromeModernAlternateCardLayout", base::FEATURE_DISABLED_BY_DEFAULT};
+    "ChromeModernAlternateCardLayout", base::FEATURE_ENABLED_BY_DEFAULT};
 
 const base::Feature kChromeModernFullRoll{"ChromeModernFullRoll",
                                           base::FEATURE_DISABLED_BY_DEFAULT};
@@ -298,6 +301,10 @@ const base::Feature kFullscreenActivity{"FullscreenActivity",
 
 const base::Feature kHandleMediaIntents{"HandleMediaIntents",
                                         base::FEATURE_ENABLED_BY_DEFAULT};
+
+const base::Feature kHideUserDataFromIncognitoNotifications{
+    "HideUserDataFromIncognitoNotifications",
+    base::FEATURE_DISABLED_BY_DEFAULT};
 
 const base::Feature kHomePageButtonForceEnabled{
     "HomePageButtonForceEnabled", base::FEATURE_DISABLED_BY_DEFAULT};

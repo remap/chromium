@@ -208,11 +208,13 @@ extern const base::Feature kHappinessTrackingSystem;
 #endif
 
 #if !defined(OS_ANDROID)
-COMPONENT_EXPORT(CHROME_FEATURES) extern const base::Feature kViewsCastDialog;
+COMPONENT_EXPORT(CHROME_FEATURES)
+extern const base::Feature kHappinessTrackingSurveysForDesktop;
 #endif
 
-COMPONENT_EXPORT(CHROME_FEATURES)
-extern const base::Feature kIdnNavigationSuggestions;
+#if !defined(OS_ANDROID)
+COMPONENT_EXPORT(CHROME_FEATURES) extern const base::Feature kViewsCastDialog;
+#endif
 
 COMPONENT_EXPORT(CHROME_FEATURES)
 extern const base::Feature kImprovedRecoveryComponent;
@@ -226,6 +228,9 @@ extern const base::Feature kIncompatibleApplicationsWarning;
 COMPONENT_EXPORT(CHROME_FEATURES)
 extern const base::Feature kLocalScreenCasting;
 #endif
+
+COMPONENT_EXPORT(CHROME_FEATURES)
+extern const base::Feature kLookalikeUrlNavigationSuggestions;
 
 COMPONENT_EXPORT(CHROME_FEATURES)
 extern const base::Feature kLsdPermissionPrompt;

@@ -239,6 +239,11 @@ void OmniboxViewViews::InstallPlaceholderText() {
   }
 }
 
+bool OmniboxViewViews::SelectionAtEnd() {
+  const gfx::Range sel = GetSelectedRange();
+  return sel.GetMax() == text().size();
+}
+
 void OmniboxViewViews::EmphasizeURLComponents() {
   if (!location_bar_view_)
     return;
@@ -550,7 +555,7 @@ bool OmniboxViewViews::IsSelectAll() const {
 void OmniboxViewViews::UpdatePopup() {
   // Prevent inline autocomplete when the caret isn't at the end of the text.
   const gfx::Range sel = GetSelectedRange();
-  model()->UpdateInput(!sel.is_empty(), sel.GetMax() < text().length());
+  model()->UpdateInput(!sel.is_empty(), !SelectionAtEnd());
 }
 
 void OmniboxViewViews::ApplyCaretVisibility() {
@@ -1276,16 +1281,49 @@ bool OmniboxViewViews::HandleKeyEvent(views::Textfield* textfield,
       break;
 
     case ui::VKEY_PRIOR:
-      if (control || alt || shift)
+      if (control || alt || shift || read_only())
         return false;
       model()->OnUpOrDownKeyPressed(-1 * model()->result().size());
       return true;
 
     case ui::VKEY_NEXT:
-      if (control || alt || shift)
+      if (control || alt || shift || read_only())
         return false;
       model()->OnUpOrDownKeyPressed(model()->result().size());
       return true;
+
+    case ui::VKEY_RIGHT:
+      if (!(control || alt || shift)) {
+        if (SelectionAtEnd() &&
+            // Can be null in tests.
+            model()->popup_model() &&
+            model()->popup_model()->SelectedLineHasTabMatch()) {
+          if (model()->popup_model()->selected_line_state() ==
+              OmniboxPopupModel::NORMAL) {
+            model()->popup_model()->SetSelectedLineState(
+                OmniboxPopupModel::TAB_SWITCH);
+            popup_view_->ProvideButtonFocusHint(
+                model()->popup_model()->selected_line());
+          }
+          return true;
+        }
+      }
+      break;
+
+    case ui::VKEY_LEFT:
+      if (!(control || alt || shift)) {
+        if (SelectionAtEnd() &&
+            // Can be null in tests.
+            model()->popup_model() &&
+            model()->popup_model()->SelectedLineHasTabMatch() &&
+            model()->popup_model()->selected_line_state() ==
+                OmniboxPopupModel::TAB_SWITCH) {
+          model()->popup_model()->SetSelectedLineState(
+              OmniboxPopupModel::NORMAL);
+          return true;
+        }
+      }
+      break;
 
     case ui::VKEY_V:
       if (control && !alt &&
@@ -1334,12 +1372,8 @@ bool OmniboxViewViews::HandleKeyEvent(views::Textfield* textfield,
       break;
 
     case ui::VKEY_SPACE:
-      if (!(control || alt || shift))
-      {
-        size_t start, end;
-        GetSelectionBounds(&start, &end);
-        end = std::max(start, end);
-        if (end == text().size() &&
+      if (!(control || alt || shift)) {
+        if (SelectionAtEnd() &&
             model()->popup_model()->SelectedLineHasTabMatch() &&
             model()->popup_model()->selected_line_state() ==
                 OmniboxPopupModel::TAB_SWITCH) {
@@ -1421,8 +1455,8 @@ int OmniboxViewViews::OnDrop(const ui::OSExchangeData& data) {
   if (data.HasURL(ui::OSExchangeData::CONVERT_FILENAMES)) {
     GURL url;
     base::string16 title;
-    if (data.GetURLAndTitle(
-            ui::OSExchangeData::CONVERT_FILENAMES, &url, &title)) {
+    if (data.GetURLAndTitle(ui::OSExchangeData::CONVERT_FILENAMES, &url,
+                            &title)) {
       text = StripJavascriptSchemas(base::UTF8ToUTF16(url.spec()));
     }
   } else if (data.HasString() && data.GetString(&text)) {
@@ -1451,7 +1485,7 @@ void OmniboxViewViews::UpdateContextMenu(ui::SimpleMenuModel* menu_contents) {
   // is using IDS_ for all its command ids. This is because views cannot depend
   // on IDC_ for now.
   menu_contents->AddItemWithStringId(IDC_EDIT_SEARCH_ENGINES,
-      IDS_EDIT_SEARCH_ENGINES);
+                                     IDS_EDIT_SEARCH_ENGINES);
 }
 
 void OmniboxViewViews::OnCompositingDidCommit(ui::Compositor* compositor) {
@@ -1485,9 +1519,6 @@ void OmniboxViewViews::OnCompositingEnded(ui::Compositor* compositor) {
     latency_histogram_state_ = NOT_ACTIVE;
   }
 }
-
-void OmniboxViewViews::OnCompositingLockStateChanged(
-    ui::Compositor* compositor) {}
 
 void OmniboxViewViews::OnCompositingChildResizing(ui::Compositor* compositor) {}
 

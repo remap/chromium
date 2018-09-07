@@ -4,6 +4,7 @@
 
 package org.chromium.chrome.browser.offlinepages.indicator;
 
+import android.os.SystemClock;
 import android.support.test.InstrumentationRegistry;
 import android.support.test.filters.MediumTest;
 
@@ -55,6 +56,9 @@ public class OfflineIndicatorControllerTest {
                 NetworkChangeNotifier.init();
             }
             NetworkChangeNotifier.forceConnectivityState(true);
+            OfflineIndicatorController.initialize();
+            OfflineIndicatorController.getInstance().overrideTimeToWaitForStableOfflineForTesting(
+                    1500);
         });
     }
 
@@ -117,6 +121,43 @@ public class OfflineIndicatorControllerTest {
 
     @Test
     @MediumTest
+    public void testDoNotShowSubsequentOfflineIndicatorWhenFlaky() throws Exception {
+        EmbeddedTestServer testServer =
+                EmbeddedTestServer.createAndStartServer(InstrumentationRegistry.getContext());
+        String testUrl = testServer.getURL(TEST_PAGE);
+
+        // Load a page.
+        loadPage(testUrl);
+
+        // Disconnect the network.
+        setNetworkConnectivity(false);
+
+        // Offline indicator should be shown.
+        checkOfflineIndicatorVisibility(mActivityTestRule.getActivity(), true);
+
+        // Reconnect the network.
+        setNetworkConnectivity(true);
+
+        // Offline indicator should go away.
+        checkOfflineIndicatorVisibility(mActivityTestRule.getActivity(), false);
+
+        // Disconnect the network.
+        setNetworkConnectivity(false);
+
+        // Subsequent offline indicator should not be shown.
+        checkOfflineIndicatorVisibility(mActivityTestRule.getActivity(), false);
+
+        // Reconnect the network and keep it for some time before disconnecting it.
+        setNetworkConnectivity(true);
+        SystemClock.sleep(2000);
+        setNetworkConnectivity(false);
+
+        // Subsequent offline indicator should be shown.
+        checkOfflineIndicatorVisibility(mActivityTestRule.getActivity(), true);
+    }
+
+    @Test
+    @MediumTest
     public void testDoNotShowOfflineIndicatorOnErrorPageWhenOffline() throws Exception {
         EmbeddedTestServer testServer =
                 EmbeddedTestServer.createAndStartServer(InstrumentationRegistry.getContext());
@@ -161,8 +202,13 @@ public class OfflineIndicatorControllerTest {
 
     private void setNetworkConnectivity(boolean connected) {
         mIsConnected = connected;
-        ThreadUtils.runOnUiThreadBlocking(
-                () -> { NetworkChangeNotifier.forceConnectivityState(connected); });
+        ThreadUtils.runOnUiThreadBlocking(() -> {
+            OfflineIndicatorController.getInstance()
+                    .getConnectivityDetectorForTesting()
+                    .updateConnectionState(connected
+                                    ? ConnectivityDetector.ConnectionState.VALIDATED
+                                    : ConnectivityDetector.ConnectionState.DISCONNECTED);
+        });
     }
 
     private void loadPage(String pageUrl) throws Exception {

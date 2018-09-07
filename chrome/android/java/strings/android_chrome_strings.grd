@@ -309,14 +309,20 @@ CHAR-LIMIT guidelines:
       <message name="IDS_SIGN_IN_TO_CHROME_DISABLED_SUMMARY" desc="A descriptive line of text that appears under the 'Sign in to Chrome' option, in Chrome Settings on Android. The text explains why 'Sign in to Chrome' is disabled. 'Administrator' refers to the IT administrator of the company/organization that owns the user’s device.">
           Disabled by the administrator of this device
       </message>
-      <message name="IDS_SIGN_IN_GOOGLE_ACTIVITY_CONTROLS" desc="Title of Google activity controls preference in signed in accounts settings screen">
+      <message name="IDS_SIGN_IN_GOOGLE_ACTIVITY_CONTROLS_LEGACY" desc="Title of Google activity controls preference in signed in accounts settings screen">
         Google Activity Controls
       </message>
-      <message name="IDS_SIGN_IN_GOOGLE_ACTIVITY_CONTROLS_MESSAGE" desc="Message of Google activity controls preference in signed in accounts settings screen">
+      <message name="IDS_SIGN_IN_GOOGLE_ACTIVITY_CONTROLS_MESSAGE_LEGACY" desc="Message of Google activity controls preference in signed in accounts settings screen">
         Control how Google uses your browsing history to personalize Search, ads, and other Google services.
       </message>
       <message name="IDS_SIGN_IN_GOOGLE_ACTIVITY_CONTROLS_MESSAGE_CHILD_ACCOUNT" desc="Message of Google activity controls preference in signed in accounts settings screen for child accounts">
         Control how Google uses your browsing history to personalize Search and other Google services.
+      </message>
+      <message name="IDS_SIGN_IN_GOOGLE_ACTIVITY_CONTROLS_TITLE" desc="Title of Google activity controls preference in signed in accounts settings screen">
+        Google activity controls
+      </message>
+      <message name="IDS_SIGN_IN_GOOGLE_ACTIVITY_CONTROLS_SUMMARY" desc="Message of Google activity controls preference in signed in accounts settings screen">
+        Control how your browsing history is used to personalize Search, ads, and more
       </message>
       <message name="IDS_SIGN_IN_SYNC_ERROR_WIDGET" desc="Accessibility description of the sync error widget in settings screen">
         Sync error occurred, tap to get details.
@@ -367,6 +373,12 @@ CHAR-LIMIT guidelines:
       <message name="IDS_PRIVACY_SYNC_AND_SERVICES_LINK" desc="The text for Privacy preferences that is shown after all preference rows.">
         For more settings that relate to privacy, security, and data collection, see <ph name="BEGIN_LINK">&lt;link&gt;</ph>Sync and Google services<ph name="END_LINK">&lt;/link&gt;</ph>
       </message>
+      <message name="IDS_USAGE_AND_CRASH_REPORTS_TITLE" desc="Title for a preference that enables sending usage statistics and crash reports.">
+        Help improve Chrome's features and performance
+      </message>
+      <message name="IDS_USAGE_AND_CRASH_REPORTS_SUMMARY" desc="Description for 'Help improve Chrome's features and performance' preference.">
+        Automatically sends usage statistics and crash reports to Google
+      </message>
 
       <!-- Search engine preferences -->
       <message name="IDS_PREFS_SEARCH_ENGINE" desc="Title for Search Engine preferences. [CHAR-LIMIT=32]">
@@ -405,12 +417,6 @@ CHAR-LIMIT guidelines:
       <message name="IDS_PREFS_AUTOFILL_AND_PAYMENTS" desc="Title of Autofill and payments settings prefrences. [CHAR-LIMIT=32]">
         Autofill and payments
       </message>
-      <message name="IDS_AUTOFILL_SWITCH" desc="Title for 'Autofill forms' switch preference, which controls whether personal data can be automatically filled into web page forms. [CHAR-LIMIT=32]">
-        Autofill forms
-      </message>
-      <message name="IDS_AUTOFILL_PROFILES_TITLE" desc="Title of the preference to list profiles (which contain the user's name, address, etc) that can be automatically filled into web page forms. [CHAR-LIMIT=32]">
-        Addresses
-      </message>
       <message name="IDS_PAYMENT_APPS_TITLE" desc="Title of the preference to list the payment apps on device.">
         Payment apps
       </message>
@@ -419,9 +425,6 @@ CHAR-LIMIT guidelines:
       </message>
       <message name="IDS_PAYMENT_APPS_USAGE_MESSAGE" desc="Message to explain the usage of the listed payment apps.">
         On some websites, you can pay with above supported payment apps on your device.
-      </message>
-      <message name="IDS_AUTOFILL_CREDIT_CARDS_TITLE" desc="Title of the preference to list the user's cards that can be automatically filled into web page forms. These can be either credit, debit, or prepaid cards. [CHAR-LIMIT=32]">
-        Cards
       </message>
       <message name="IDS_AUTOFILL_CREATE_PROFILE" desc="Button that allows the user to create a new profile (which contains the user's name, address, etc) that will be automatically filled into web page forms. [CHAR-LIMIT=32]">
         Add address
@@ -745,11 +748,11 @@ Your Google account may have other forms of browsing history like searches and a
       <message name="IDS_CLEAR_COOKIES_AND_SITE_DATA_TITLE" desc="Title for Clear Cookies and site data in Clear Browsing Data dialog">
         Cookies and site data
       </message>
+      <message name="IDS_CLEAR_COOKIES_MEDIA_LICENSES_AND_SITE_DATA_TITLE" desc="Title for Clear Cookies, media licenses and site data in the basic Clear Browsing Data dialog">
+        Cookies, media licenses and site data
+      </message>
       <message name="IDS_CLEAR_COOKIES_AND_SITE_DATA_SUMMARY_BASIC" desc="A summary for the 'Cookies and site data' option in the 'Clear Browsing Data' screen, explaining that deleting cookies and site data will sign the user out of most websites.">
         Signs you out of most sites.
-      </message>
-      <message name="IDS_CLEAR_COOKIES_AND_SITE_DATA_SIGNED_IN_SUMMARY_BASIC" desc="A summary for the 'Cookies and site data' option in the 'Clear Browsing Data' screen, explaining that deleting cookies and site data will sign the user out of most websites but you Google sign in will stay.">
-        Signs you out of most sites. You won't be signed out of your Google Account.
       </message>
       <message name="IDS_CLEAR_BROWSING_HISTORY_SUMMARY" desc="A text for the basic tab explaining browsing history.">
         Clears history and autocompletions in the address bar.
@@ -818,10 +821,10 @@ Your Google account may have other forms of browsing history like searches and a
         Blocked site
       </message>
 
-      <message name="IDS_USAGE_AND_CRASH_REPORTS_TITLE" desc="Title for 'Usage and crash reports' preference">
+      <message name="IDS_USAGE_AND_CRASH_REPORTS_TITLE_LEGACY" desc="Title for 'Usage and crash reports' preference">
         Usage and crash reports
       </message>
-      <message name="IDS_USAGE_AND_CRASH_REPORTS_DESCRIPTION" desc="Description for 'Usage and crash reports' preference">
+      <message name="IDS_USAGE_AND_CRASH_REPORTS_DESCRIPTION_LEGACY" desc="Description for 'Usage and crash reports' preference">
         Automatically send usage statistics and crash reports to Google
       </message>
 
@@ -1123,6 +1126,9 @@ Your Google account may have other forms of browsing history like searches and a
       <message name="IDS_LANGUAGES_ITEM_OPTION_MOVE_TO_TOP" desc="Option in language item menu. User can click the 'Move to top' option to move the language up to the top of the list of languages. [CHAR-LIMIT=32]">
         Move to top
       </message>
+      <message name="IDS_LANGUAGES_EXPLICIT_ASK_TITLE" desc="Title of the dialog that explicitly asks the user which languages they can read.">
+        What languages do you read?
+      </message>
 
       <!-- Location preferences -->
       <message name="IDS_WEBSITE_SETTINGS_DEVICE_LOCATION" desc="Title for Location settings, which control which websites can access your location." meaning="Geolocation">
@@ -1417,6 +1423,9 @@ To obtain new licenses, connect to the internet and play your downloaded content
       <message name="IDS_ACCOUNT_MANAGEMENT_SYNC_SUMMARY" desc="Description for which account the data is being synced to">
         Syncing to <ph name="SYNC_ACCOUNT_USER_NAME">%1$s<ex>johndoe@gmail.com</ex></ph>
       </message>
+      <message name="IDS_ACCOUNT_MANAGEMENT_SYNC_OFF_SUMMARY" desc="Description for Chrome Sync status when Chrome Sync is disabled">
+        Sync off for <ph name="SYNC_ACCOUNT_USER_NAME">%1$s<ex>johndoe@gmail.com</ex></ph>
+      </message>
       <message name="IDS_ACCOUNT_MANAGEMENT_SIGN_OUT" desc="Button text for signing out of Chrome">
         Sign out of Chrome
       </message>
@@ -1508,11 +1517,17 @@ To obtain new licenses, connect to the internet and play your downloaded content
       </message>
 
       <!-- Sign-in strings -->
-      <message name="IDS_SIGNOUT_TITLE" desc="Title for sign out of Chrome dialog [CHAR-LIMIT=40]">
+      <message name="IDS_SIGNOUT_TITLE_LEGACY" desc="Title for sign out of Chrome dialog [CHAR-LIMIT=40]">
         Sign out of Chrome?
       </message>
-      <message name="IDS_SIGNOUT_MESSAGE" desc="Message to display for sign out of Chrome dialog">
+      <message name="IDS_SIGNOUT_TITLE" desc="Title for sign out of Chrome dialog [CHAR-LIMIT=40]">
+        Sign out and turn off sync?
+      </message>
+      <message name="IDS_SIGNOUT_MESSAGE_LEGACY" desc="Message to display for sign out of Chrome dialog">
         Changes to your bookmarks, history, passwords, and other settings will no longer be synced to your Google Account. However, your existing data will remain stored in your Google account.
+      </message>
+      <message name="IDS_SIGNOUT_MESSAGE" desc="Message to display in 'Sign out and turn off sync?' dialog">
+        Your bookmarks, history, passwords, and more will no longer be synced to your Google Account
       </message>
       <message name="IDS_SIGNOUT_MANAGED_ACCOUNT_MESSAGE" desc="Message to display for sign out of Chrome dialog when the account has enterprise management, and all user data will be erased">
         You are signing out of an account managed by <ph name="DOMAIN_NAME">%1$s<ex>google.com</ex></ph>. This will delete the Chrome data stored on this device, but the data will remain in your Google Account.
@@ -3024,7 +3039,7 @@ To obtain new licenses, connect to the internet and play your downloaded content
       </message>
 
       <message name="IDS_OFFLINE_INDICATOR_VIEW_OFFLINE_CONTENT" desc="A text label on the snackbar widget to bring up the list of offline content.">
-        View offline content
+        See downloads
       </message>
 
       <!-- Find in page -->
@@ -3671,6 +3686,9 @@ However, you aren’t invisible. Going private doesn’t hide your browsing from
       </message>
       <message name="IDS_IPH_NTP_BUTTON_TEXT_CHROME_ACCESSIBILITY_TEXT" desc="The in-product-help accessibility message to tap on the home button to navigate to the new tab page on the current tab.">
         Tap the home button to get to the new tab page in your current tab
+      </message>
+      <message name="IDS_IPH_HOMEPAGE_TILE_TEXT" desc="The in-product-help message to use first tile in Most Visited as homepage tile.">
+        Your favorite pages are here
       </message>
 
       <!-- Password Accessory Strings -->

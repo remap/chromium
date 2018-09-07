@@ -29,6 +29,7 @@ class Connector;
 
 namespace device {
 
+class BleAdapterPowerManager;
 class FidoAuthenticator;
 class FidoDevice;
 class FidoTask;
@@ -135,6 +136,11 @@ class COMPONENT_EXPORT(DEVICE_FIDO) FidoRequestHandlerBase
   //  per-device tasks are cancelled.
   // https://w3c.github.io/webauthn/#iface-pkcredential
   void CancelOngoingTasks(base::StringPiece exclude_device_id = nullptr);
+  void OnBluetoothAdapterEnumerated(bool is_present,
+                                    bool is_powered_on,
+                                    bool can_power_on);
+  void OnBluetoothAdapterPowerChanged(bool is_powered_on);
+  void PowerOnBluetoothAdapter();
 
   base::WeakPtr<FidoRequestHandlerBase> GetWeakPtr();
 
@@ -176,10 +182,8 @@ class COMPONENT_EXPORT(DEVICE_FIDO) FidoRequestHandlerBase
 
  private:
   // FidoDiscovery::Observer
-  void DiscoveryStarted(FidoDiscovery* discovery, bool success) final;
   void DeviceAdded(FidoDiscovery* discovery, FidoDevice* device) final;
   void DeviceRemoved(FidoDiscovery* discovery, FidoDevice* device) final;
-  void BluetoothAdapterPowerChanged(bool is_powered_on) final;
 
   void AddAuthenticator(std::unique_ptr<FidoAuthenticator> authenticator);
   void NotifyObserverTransportAvailability();
@@ -189,12 +193,14 @@ class COMPONENT_EXPORT(DEVICE_FIDO) FidoRequestHandlerBase
   // to FidoDeviceAuthenticator instances in order to determine their protocol
   // versions before a request can be dispatched.
   void InitializeAuthenticatorAndDispatchRequest(FidoAuthenticator*);
+  void ConstructBleAdapterPowerManager();
 
   AuthenticatorMap active_authenticators_;
   std::vector<std::unique_ptr<FidoDiscovery>> discoveries_;
   TransportAvailabilityObserver* observer_ = nullptr;
   TransportAvailabilityInfo transport_availability_info_;
   base::RepeatingClosure notify_observer_callback_;
+  std::unique_ptr<BleAdapterPowerManager> bluetooth_power_manager_;
 
   base::WeakPtrFactory<FidoRequestHandlerBase> weak_factory_;
   DISALLOW_COPY_AND_ASSIGN(FidoRequestHandlerBase);

@@ -299,7 +299,7 @@ const char* ProtoEnumToString(sync_pb::TabNavigation::PasswordState state) {
 
 const char* ProtoEnumToString(sync_pb::UserConsentSpecifics::Feature feature) {
   ASSERT_ENUM_BOUNDS(sync_pb::UserConsentSpecifics, Feature,
-                     FEATURE_UNSPECIFIED, CHROME_UNIFIED_CONSENT);
+                     FEATURE_UNSPECIFIED, ASSISTANT_ACTIVITY_CONTROL);
   switch (feature) {
     ENUM_CASE(sync_pb::UserConsentSpecifics, FEATURE_UNSPECIFIED);
     ENUM_CASE(sync_pb::UserConsentSpecifics, CHROME_SYNC);
@@ -307,6 +307,7 @@ const char* ProtoEnumToString(sync_pb::UserConsentSpecifics::Feature feature) {
     ENUM_CASE(sync_pb::UserConsentSpecifics, BACKUP_AND_RESTORE);
     ENUM_CASE(sync_pb::UserConsentSpecifics, GOOGLE_LOCATION_SERVICE);
     ENUM_CASE(sync_pb::UserConsentSpecifics, CHROME_UNIFIED_CONSENT);
+    ENUM_CASE(sync_pb::UserConsentSpecifics, ASSISTANT_ACTIVITY_CONTROL);
   }
   NOTREACHED();
   return "";
@@ -349,7 +350,7 @@ const char* ProtoEnumToString(
 const char* ProtoEnumToString(
     sync_pb::UserEventSpecifics::UserConsent::Feature feature) {
   ASSERT_ENUM_BOUNDS(sync_pb::UserEventSpecifics::UserConsent, Feature,
-                     FEATURE_UNSPECIFIED, CHROME_UNIFIED_CONSENT);
+                     FEATURE_UNSPECIFIED, ASSISTANT_ACTIVITY_CONTROL);
   switch (feature) {
     ENUM_CASE(sync_pb::UserEventSpecifics::UserConsent, FEATURE_UNSPECIFIED);
     ENUM_CASE(sync_pb::UserEventSpecifics::UserConsent, CHROME_SYNC);
@@ -358,6 +359,8 @@ const char* ProtoEnumToString(
     ENUM_CASE(sync_pb::UserEventSpecifics::UserConsent,
               GOOGLE_LOCATION_SERVICE);
     ENUM_CASE(sync_pb::UserEventSpecifics::UserConsent, CHROME_UNIFIED_CONSENT);
+    ENUM_CASE(sync_pb::UserEventSpecifics::UserConsent,
+              ASSISTANT_ACTIVITY_CONTROL);
   }
   NOTREACHED();
   return "";
@@ -473,6 +476,7 @@ const char* ProtoEnumToString(
   return "";
 }
 
+// TODO(markusheintz): Remove.
 const char* ProtoEnumToString(sync_pb::UserEventSpecifics::GaiaPasswordReuse::
                                   PasswordCaptured::EventTrigger trigger) {
   ASSERT_ENUM_BOUNDS(
@@ -484,6 +488,21 @@ const char* ProtoEnumToString(sync_pb::UserEventSpecifics::GaiaPasswordReuse::
     ENUM_CASE(sync_pb::UserEventSpecifics::GaiaPasswordReuse::PasswordCaptured,
               USER_LOGGED_IN);
     ENUM_CASE(sync_pb::UserEventSpecifics::GaiaPasswordReuse::PasswordCaptured,
+              EXPIRED_28D_TIMER);
+  }
+  NOTREACHED();
+  return "";
+}
+
+const char* ProtoEnumToString(
+    sync_pb::UserEventSpecifics::GaiaPasswordCaptured::EventTrigger trigger) {
+  ASSERT_ENUM_BOUNDS(sync_pb::UserEventSpecifics::GaiaPasswordCaptured,
+                     EventTrigger, UNSPECIFIED, EXPIRED_28D_TIMER);
+  switch (trigger) {
+    ENUM_CASE(sync_pb::UserEventSpecifics::GaiaPasswordCaptured, UNSPECIFIED);
+    ENUM_CASE(sync_pb::UserEventSpecifics::GaiaPasswordCaptured,
+              USER_LOGGED_IN);
+    ENUM_CASE(sync_pb::UserEventSpecifics::GaiaPasswordCaptured,
               EXPIRED_28D_TIMER);
   }
   NOTREACHED();

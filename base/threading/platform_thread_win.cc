@@ -277,8 +277,18 @@ bool PlatformThread::CanIncreaseCurrentThreadPriority() {
 
 // static
 void PlatformThread::SetCurrentThreadPriority(ThreadPriority priority) {
+  // A DCHECK is triggered on FeatureList initialization if the state of a
+  // feature has been checked before. We only want to trigger that DCHECK if the
+  // priority has been set to BACKGROUND before, so we are careful not to access
+  // the state of the feature needlessly. We don't DCHECK here because it is ok
+  // if the FeatureList is never initialized in the process (e.g. in tests).
+  //
+  // TODO(fdoray): Remove experiment code. https://crbug.com/872820
   const bool use_thread_mode_background =
-      base::FeatureList::IsEnabled(features::kWindowsThreadModeBackground);
+      (priority == ThreadPriority::BACKGROUND
+           ? FeatureList::IsEnabled(features::kWindowsThreadModeBackground)
+           : (FeatureList::GetInstance() &&
+              FeatureList::IsEnabled(features::kWindowsThreadModeBackground)));
 
   if (use_thread_mode_background && priority != ThreadPriority::BACKGROUND) {
     // Exit background mode if the new priority is not BACKGROUND. This is a

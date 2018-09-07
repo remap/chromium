@@ -6200,7 +6200,8 @@ bool Document::AllowedToUseDynamicMarkUpInsertion(
     return true;
   }
   if (!frame_ ||
-      frame_->IsFeatureEnabled(mojom::FeaturePolicyFeature::kDocumentWrite)) {
+      frame_->IsFeatureEnabled(mojom::FeaturePolicyFeature::kDocumentWrite,
+                               ReportOptions::kReportOnFailure)) {
     return true;
   }
 
@@ -7580,7 +7581,7 @@ bool Document::IsSlotAssignmentOrLegacyDistributionDirty() {
 
 LazyLoadImageObserver& Document::EnsureLazyLoadImageObserver() {
   if (!lazy_load_image_observer_)
-    lazy_load_image_observer_ = new LazyLoadImageObserver(*this);
+    lazy_load_image_observer_ = new LazyLoadImageObserver();
   return *lazy_load_image_observer_;
 }
 

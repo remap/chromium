@@ -17,7 +17,7 @@
 #include "content/public/test/test_browser_thread_bundle.h"
 #include "content/test/test_web_contents.h"
 #include "media/base/media_content_type.h"
-#include "media/base/media_switches.h"
+#include "services/media_session/public/cpp/switches.h"
 #include "services/media_session/public/mojom/audio_focus.mojom.h"
 
 namespace content {
@@ -68,7 +68,7 @@ class AudioFocusManagerTest : public testing::Test {
 
   void SetUp() override {
     base::CommandLine::ForCurrentProcess()->AppendSwitch(
-        switches::kEnableAudioFocus);
+        media_session::switches::kEnableAudioFocus);
     rph_factory_.reset(new MockRenderProcessHostFactory());
     RenderProcessHostImpl::set_render_process_host_factory_for_testing(
         rph_factory_.get());
@@ -90,23 +90,25 @@ class AudioFocusManagerTest : public testing::Test {
   }
 
   MediaSessionImpl* GetAudioFocusedSession() const {
-    const auto& audio_focus_stack =
-        AudioFocusManager::GetInstance()->audio_focus_stack_;
+    const AudioFocusManager* manager = AudioFocusManager::GetInstance();
+    const auto& audio_focus_stack = manager->audio_focus_stack_;
+
     for (auto iter = audio_focus_stack.rbegin();
          iter != audio_focus_stack.rend(); ++iter) {
-      if ((*iter)->audio_focus_type() == AudioFocusType::kGain)
-        return (*iter);
+      if ((*iter).audio_focus_type == AudioFocusType::kGain)
+        return (*iter).media_session;
     }
     return nullptr;
   }
 
   int GetTransientMaybeDuckCount() const {
+    const AudioFocusManager* manager = AudioFocusManager::GetInstance();
+    const auto& audio_focus_stack = manager->audio_focus_stack_;
     int count = 0;
-    const auto& audio_focus_stack =
-        AudioFocusManager::GetInstance()->audio_focus_stack_;
+
     for (auto iter = audio_focus_stack.rbegin();
          iter != audio_focus_stack.rend(); ++iter) {
-      if ((*iter)->audio_focus_type() == AudioFocusType::kGainTransientMayDuck)
+      if ((*iter).audio_focus_type == AudioFocusType::kGainTransientMayDuck)
         ++count;
       else
         break;

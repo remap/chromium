@@ -66,6 +66,7 @@ void PopulateResourceResponse(net::URLRequest* request,
       response_info.alpn_negotiated_protocol;
   response->head.connection_info = response_info.connection_info;
   response->head.socket_address = response_info.socket_address;
+  response->head.was_fetched_via_cache = request->was_cached();
   response->head.was_fetched_via_proxy = request->was_fetched_via_proxy();
   response->head.network_accessed = response_info.network_accessed;
   response->head.async_revalidation_requested =
@@ -499,6 +500,13 @@ void URLLoader::FollowRedirect(
     return;
   }
 
+  if (!deferred_redirect_) {
+    NOTREACHED();
+    return;
+  }
+
+  deferred_redirect_ = false;
+
   if (to_be_removed_request_headers.has_value()) {
     for (const std::string& key : to_be_removed_request_headers.value())
       url_request_->RemoveRequestHeaderByName(key);
@@ -563,6 +571,9 @@ void URLLoader::OnReceivedRedirect(net::URLRequest* url_request,
                                    bool* defer_redirect) {
   DCHECK(url_request == url_request_.get());
   DCHECK(url_request->status().is_success());
+
+  DCHECK(!deferred_redirect_);
+  deferred_redirect_ = true;
 
   // Send the redirect response to the client, allowing them to inspect it and
   // optionally follow the redirect.
