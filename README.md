@@ -33,7 +33,7 @@ $ git clone https://github.com/remap/chromium.git src
 ```
 and go to the src directory:
 ```
-$ cd  src
+$ cd src
 ```
 **Note: All the command from here are related to the chromium/src directory**
 ### 3. Run the hooks
