@@ -27,7 +27,7 @@ Create a directory like chromium/src:
 $ mkdir chromium && mkdir chromium/src && cd chromium/src
 ```
 **Note: All the command from here are related to the chromium/src directory**
-and clone the code into it:
+and clone the code into it(**Note: Based on your Internet may take some time as it's quite a large project**):
 ```
 $ git clone https://github.com/remap/chromium.git
 ```
