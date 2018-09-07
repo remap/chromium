@@ -24,13 +24,14 @@ $ source ~/.bashrc
 ### 2. Get the code
 Create a directory like chromium/src:
 ```
-$ mkdir chromium && mkdir chromium/src && cd chromium/src
+$ mkdir chromium && cd chromium
 ```
-**Note: All the command from here are related to the chromium/src directory**
+
 and clone the code into it(**Note: Based on your Internet may take some time as it's quite a large project**):
 ```
-$ git clone https://github.com/remap/chromium.git
+$ git clone https://github.com/remap/chromium.git src
 ```
+**Note: All the command from here are related to the chromium directory**
 ### 3. Run the hooks
 To install the BUILD_DEPS run the following command:
 ```
