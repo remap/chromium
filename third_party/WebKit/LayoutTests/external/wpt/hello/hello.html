@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<meta charset=utf-8>
+<title>Hello</title>
+<link rel=help href="https://w3c.github.io/webappsec-cowl/#framework-labels">
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script>
+'use strict';
+test(function() {
+  const hi = new HELLO();
+  // assert_equals(hi.sayHello(), "Hello, World!");
+  assert_equals("hi", "hi");
+}, "HELLO constructor");
+test(function() {
+  const hi = new HELLO();
+  assert_equals(HELLO.sayHello, "Hello, World!");
+}, "HELLO.sayHello");
+</script>

@@ -1,0 +1,6 @@
+[
+    Constructor,
+    ImplementedAs=HELLO
+] interface HELLO {
+	static attribute DOMString sayHello;
+};
