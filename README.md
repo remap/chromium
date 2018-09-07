@@ -2,14 +2,8 @@
 This is the fork of chromium used by the REMAP team to create an AR-Browser.
 ## Build Process
 The process of building this project is very much like the process of building chromium for linux (https://chromium.googlesource.com/chromium/src/+/master/docs/linux_build_instructions.md):
-1. Install depot_tools
-2. Get the code
-3. Run the hooks
-4. Setting up the build
-5. Build Chromium
-6. Run Chromium
 
-### Install depot_tools
+### 1. Install depot_tools
 Run the following commands in the terminal:
 ```
 $ git clone https://chromium.googlesource.com/chromium/tools/depot_tools.git
@@ -27,7 +21,7 @@ export PATH="$PATH:/path/to/depot_tools
 ```
 $ source ~/.bashrc
 ```
-### Get the code
+### 2. Get the code
 Create a directory like chromium/src:
 ```
 $ mkdir chromium && mkdir chromium/src && cd chromium/src
@@ -37,22 +31,22 @@ and clone the code into it:
 ```
 $ git clone https://github.com/remap/chromium.git
 ```
-### Run the hooks
+### 3. Run the hooks
 To install the BUILD_DEPS run the following command:
 ```
 $ gclient runhooks
 ```
-### Setting up the build
+### 4. Setting up the build
 Generate the .ninja files through the following command:
 ```
 gn gen out/Default
 ```
-### Build Chromium
+### 5. Build Chromium
 Run the following command:
 ```
 $ autoninja -C out/Default chrome
 ```
-### Run Chromium
+### 6. Run Chromium
 Run the following command:
 ```
 $ out/Default/chrome
