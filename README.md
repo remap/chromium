@@ -27,15 +27,27 @@ Create a directory like chromium/src:
 $ mkdir chromium && cd chromium
 ```
 
-and clone the code into it(**Note: Based on your Internet may take some time as it's quite a large project**):
+then create a config file for gclient by running the following command:
 ```
-$ git clone https://github.com/remap/chromium.git src
+$ gclient config --spec 'solutions = [
+  {
+    "url": "https://github.com/remap/chromium.git",
+    "managed": False,
+    "name": "src",
+    "custom_deps": {},
+  },
+]
+'
+```
+and clone the project by running the following command(**Note: Based on your Internet may take some time as it's quite a large project**):
+```
+$ gclient sync --nohooks
 ```
 and go to the src directory:
 ```
 $ cd src
 ```
-**Note: All the command from here are related to the chromium/src directory**
+**Note: All the commands from here are related to the chromium/src directory**
 ### 3. Run the hooks
 To install the BUILD_DEPS run the following command:
 ```
@@ -72,5 +84,9 @@ After creating the .idl file you should give a reference to it in the appropriat
 **Note: Till here if any changes is made in any of the stated files you should again run the command related to building the chromium (the autoninja command).**
 ### Write layout test files
 After you exposed your code you can test it by creating test html files in the ```chromium/third_party/WebKit/LayoutTests/external/wpt/``` so in this case we create a hello directory and write a html test file as the one in the ```chromium/third_party/WebKit/LayoutTests/external/wpt/hello/``` directory and then run the layout test. (**Note: If you don't know how to run all or some of the layout tests take a look at this link: https://chromium.googlesource.com/chromium/src/+/master/docs/testing/layout_tests.md**)
+For instance if you've installed the prerequisites like command_shell from the link above you can test the hello module by running the following command:
+```
+python third_party/blink/tools/run_web_tests.py external/wpt/hello/ -t Default
+```
 **Note: There is no need to re-build the project if you changed the test files.**
 
